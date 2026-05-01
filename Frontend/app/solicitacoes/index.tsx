@@ -11,7 +11,7 @@ import { router } from "expo-router";
 
 export default function SolicitaçõesScreen() {
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={["top"]}>
       
       
       {/* HEADER SIMPLES */}
@@ -73,6 +73,7 @@ export default function SolicitaçõesScreen() {
       </ScrollView>
 
       <TabBar />
+     
     </SafeAreaView>
   );
 }

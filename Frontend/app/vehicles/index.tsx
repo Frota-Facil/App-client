@@ -55,10 +55,11 @@ export default function VehiclesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={["top"]}>
       {/* HEADER */}
       <View
         style={{
+          marginTop: 0,
           padding: 20,
           flexDirection: "row",
           alignItems: "center",
@@ -85,22 +86,38 @@ export default function VehiclesScreen() {
       {/* BUSCA COM ÍCONE */}
       <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
         <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "#F3F4F6",
-            borderRadius: 12,
-            paddingHorizontal: 10,
-          }}
-        >
-          <Text style={{ fontSize: 16, marginRight: 6 }}>🔍</Text>
+            style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#F9FAFB",
+                borderRadius: 14,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+            }}
+            >
+            <Image
+                source={require("../../assets/images/lupa.png")}
+                style={{
+                width: 18,
+                height: 18,
+                tintColor: "#9CA3AF",
+                marginRight: 8,
+                }}
+            />
 
-          <TextInput
-            placeholder="Buscar por modelo ou placa"
-            value={search}
-            onChangeText={setSearch}
-            style={{ flex: 1, padding: 10 }}
-          />
+            <TextInput
+                placeholder="Buscar por modelo ou placa"
+                placeholderTextColor="#9CA3AF"
+                value={search}
+                onChangeText={setSearch}
+                style={{
+                flex: 1,
+                fontSize: 14,
+                color: "#111827",
+                }}
+            />
         </View>
       </View>
 
@@ -138,7 +155,10 @@ export default function VehiclesScreen() {
       </ScrollView>
 
       {/* LISTA */}
-      <ScrollView style={{ marginTop: 10 }}>
+      <ScrollView
+        style={{ marginTop: 10 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
         <View
           style={{
             flexDirection: "row",
@@ -205,6 +225,7 @@ export default function VehiclesScreen() {
       </ScrollView>
 
       <TabBar />
+
     </SafeAreaView>
   );
 }
