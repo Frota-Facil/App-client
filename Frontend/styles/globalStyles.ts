@@ -6,6 +6,8 @@ export const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
+    
+
   },
 
   body: {
@@ -241,4 +243,10 @@ export const styles = StyleSheet.create({
     color: '#F59E0B',
     fontWeight: 'bold',
   },
+  backIcon: {
+  width: 20,
+  height: 20,
+  marginLeft: 5,
+  marginRight: 10,
+},
 });
