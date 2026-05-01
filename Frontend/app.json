@@ -9,11 +9,9 @@
     "scheme": "frontend-app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-
     "ios": {
       "supportsTablet": true
     },
-
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -23,15 +21,13 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.Frontend"
     },
-
     "web": {
       "output": "static"
     },
-
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-web-browser"
     ],
-
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
