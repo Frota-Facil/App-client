@@ -2,6 +2,7 @@ import { View, Text } from 'react-native';
 import { Avatar } from '../ui/Avatar';
 import { NotificationBadge } from '../common/NotificaionBadge';
 import { styles } from '../../styles/globalStyles';
+import { RequestButton } from '../../components/ui/RequestButton';
 
 export const Header = () => {
   return (
@@ -22,6 +23,9 @@ export const Header = () => {
       <Text style={styles.heroText}>
         Pronto para a{'\n'}próxima viagem?
       </Text>
+
+
+      <RequestButton onPress={() => console.log("Solicitar veículo")} />
     </View>
   );
 };
