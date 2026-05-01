@@ -1,6 +1,8 @@
 import { View, Text, TouchableOpacity, Image } from "react-native";
-import { styles } from "../../styles/globalStyles";
 import { useRouter, usePathname, Href } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { styles } from "../../styles/globalStyles";
 
 type TabItemProps = {
   label: string;
@@ -28,49 +30,70 @@ const TabItem: React.FC<TabItemProps> = ({ label, icon, route }) => {
         }}
       />
 
-      <Text style={styles.tabLabel}>
+      <Text
+        style={[
+          styles.tabLabel,
+          { opacity: isActive ? 1 : 0.5 },
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
   );
 };
 
-export const TabBar = () => (
-  <View>
-    <View style={styles.tabBar}>
-      
-      <TabItem
-        label="Início"
-        route="/home"
-        icon={require("../../assets/images/casa.png")}
-      />
+export const TabBar = () => {
+  const insets = useSafeAreaInsets();
 
-      <TabItem
-        label="Veículos"
-        route="/vehicles"
-        icon={require("../../assets/images/hatchback.png")}
-      />
+  return (
+    <View>
+      {/* TAB BAR BRANCA */}
+      <View
+        style={[
+          styles.tabBar,
+          {
+            paddingBottom: 10, // padding interno da tab
+          },
+        ]}
+      >
+        <TabItem
+          label="Início"
+          route="/home"
+          icon={require("../../assets/images/casa.png")}
+        />
 
-      <TabItem
-        label="Solicitações"
-        route="/solicitacoes"
-        icon={require("../../assets/images/solicitacoes.png")}
-      />
+        <TabItem
+          label="Veículos"
+          route="/vehicles"
+          icon={require("../../assets/images/hatchback.png")}
+        />
 
-      <TabItem
-        label="Avisos"
-        route="/avisos"//ainda não tem tela de avisos, mas já deixei o caminho preparado
-        icon={require("../../assets/images/notificacao.png")}
-      />
+        <TabItem
+          label="Solicitações"
+          route="/solicitacoes"
+          icon={require("../../assets/images/solicitacoes.png")}
+        />
 
-      <TabItem
-        label="Perfil"
-        route="/perfil"//ainda não tem tela de perfil, mas já deixei o caminho preparado
-        icon={require("../../assets/images/perfil.png")}
-      />
+        <TabItem
+          label="Avisos"
+          route="/avisos"
+          icon={require("../../assets/images/notificacao.png")}
+        />
 
+        <TabItem
+          label="Perfil"
+          route="/perfil"
+          icon={require("../../assets/images/perfil.png")}
+        />
+      </View>
+
+      {/* FUNDO PRETO DO SISTEMA (ANDROID/IPHONE) */}
+      <View
+        style={{
+          height: insets.bottom,
+          backgroundColor: "#000",
+        }}
+      />
     </View>
-
-    <View style={styles.backblack} />
-  </View>
-);
+  );
+};

@@ -10,7 +10,7 @@ import { styles } from '../../styles/globalStyles';
 
 export default function HomeScreen() {
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} >
       
       <Header />
 
@@ -28,6 +28,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       <TabBar />
+      
     </SafeAreaView>
   );
 }
