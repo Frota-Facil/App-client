@@ -4,27 +4,36 @@ import {
   Text,
   ScrollView,
   TextInput,
-  TouchableOpacity,
   Image,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
 import { styles } from "../../styles/globalStyles";
-import { TabBar } from "../../components/layout/TabBar";
+import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
+import { PageHeader } from "../../components/layout/PageHeader";
+import { FilterTabs } from "../../components/layout/FilterTabs";
 import { vehicles } from "../../constants/data";
 
-export default function VehiclesScreen() {
-  const [filter, setFilter] = useState("Todos");
-  const [search, setSearch] = useState("");
+type VehicleFilter =
+  | "Todos"
+  | "Disponíveis"
+  | "Em uso"
+  | "Indisponíveis"
+  | "Manutenção";
 
-  const filters = [
-    "Todos",
-    "Disponíveis",
-    "Em uso",
-    "Indisponíveis",
-    "Manutenção",
-  ];
+const filters: VehicleFilter[] = [
+  "Todos",
+  "Disponíveis",
+  "Em uso",
+  "Indisponíveis",
+  "Manutenção",
+];
+
+export default function VehiclesScreen() {
+  const insets = useSafeAreaInsets();
+  const [filter, setFilter] = useState<VehicleFilter>("Todos");
+  const [search, setSearch] = useState("");
 
   const filteredVehicles = vehicles.filter((v) => {
     const matchSearch =
@@ -56,165 +65,70 @@ export default function VehiclesScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      {/* HEADER */}
-      <View
-        style={{
-          marginTop: 0,
-          padding: 20,
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "#fff",
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()}>
-          <Image
-            source={require("../../assets/images/seta-esquerda.png")}
-            style={styles.backIcon}
-          />
-        </TouchableOpacity>
+      <PageHeader
+        title="Veículos"
+        subtitle="Frota municipal"
+        leftIconSource={require("../../assets/images/seta-esquerda.png")}
+        onBackPress={() => router.back()}
+      />
 
-        <View>
-          <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-            Veículos
-          </Text>
-          <Text style={{ fontSize: 12, color: "#6B7280" }}>
-            Frota municipal
-          </Text>
-        </View>
-      </View>
+      <FilterTabs options={filters} value={filter} onChange={setFilter} />
 
       {/* BUSCA COM ÍCONE */}
-      <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
-        <View
-            style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: "#F9FAFB",
-                borderRadius: 14,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                borderWidth: 1,
-                borderColor: "#E5E7EB",
-            }}
-            >
-            <Image
-                source={require("../../assets/images/lupa.png")}
-                style={{
-                width: 18,
-                height: 18,
-                tintColor: "#9CA3AF",
-                marginRight: 8,
-                }}
-            />
+      <View style={styles.vehicleSearchArea}>
+        <View style={styles.vehicleSearchInputWrapper}>
+          <Image
+            source={require("../../assets/images/lupa.png")}
+            style={styles.vehicleSearchIcon}
+          />
 
-            <TextInput
-                placeholder="Buscar por modelo ou placa"
-                placeholderTextColor="#9CA3AF"
-                value={search}
-                onChangeText={setSearch}
-                style={{
-                flex: 1,
-                fontSize: 14,
-                color: "#111827",
-                }}
-            />
+          <TextInput
+            placeholder="Buscar por modelo ou placa"
+            placeholderTextColor="#9CA3AF"
+            value={search}
+            onChangeText={setSearch}
+            style={styles.vehicleSearchInput}
+          />
         </View>
       </View>
-
-      {/* FILTROS */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginTop: 10, maxHeight: 40 }}
-      >
-        <View style={{ flexDirection: "row", paddingHorizontal: 10 }}>
-          {filters.map((item) => (
-            <TouchableOpacity
-              key={item}
-              onPress={() => setFilter(item)}
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 20,
-                marginRight: 8,
-                backgroundColor:
-                  filter === item ? "#2563EB" : "#E5E7EB",
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: filter === item ? "#fff" : "#374151",
-                }}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
 
       {/* LISTA */}
       <ScrollView
-        style={{ marginTop: 10 }}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={styles.vehicleList}
+        contentContainerStyle={[
+          styles.screenContent,
+          { paddingBottom: getTabBarContentPadding(insets.bottom) },
+        ]}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-            padding: 10,
-          }}
-        >
+        <View style={styles.vehicleGrid}>
           {filteredVehicles.map((v) => {
             const status = getStatusStyle(v.status);
 
             return (
-              <View
-                key={v.id}
-                style={{
-                  width: "48%",
-                  backgroundColor: "#fff",
-                  borderRadius: 16,
-                  padding: 12,
-                  marginBottom: 10,
-                }}
-              >
+              <View key={v.id} style={styles.vehicleGridCard}>
                 {/* IMAGEM */}
-                <View
-                  style={{
-                    backgroundColor: "#F3F4F6",
-                    borderRadius: 12,
-                    height: 80,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
+                <View style={styles.vehicleGridImage}>
                   <Text>🚗</Text>
                 </View>
 
                 {/* INFO */}
-                <Text style={{ fontWeight: "bold", marginTop: 10 }}>
-                  {v.name}
-                </Text>
+                <Text style={styles.vehicleGridName}>{v.name}</Text>
 
-                <Text style={{ fontSize: 12, color: "#6B7280" }}>
-                  {v.plate}
-                </Text>
+                <Text style={styles.vehicleGridPlate}>{v.plate}</Text>
 
                 {/* STATUS */}
                 <View
-                  style={{
-                    marginTop: 8,
-                    alignSelf: "flex-start",
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 20,
-                    backgroundColor: status.bg,
-                  }}
+                  style={[
+                    styles.vehicleGridStatus,
+                    { backgroundColor: status.bg },
+                  ]}
                 >
-                  <Text style={{ fontSize: 12, color: status.text }}>
+                  <Text
+                    style={[
+                      styles.vehicleGridStatusText,
+                      { color: status.text },
+                    ]}
+                  >
                     {status.label}
                   </Text>
                 </View>

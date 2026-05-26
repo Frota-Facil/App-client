@@ -16,7 +16,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("123456");
 
   const handleLogin = () => {
-    // depois você conecta com backend
+    // depois conectar com backend
     router.replace("/home");
   };
 
@@ -35,7 +35,7 @@ export default function LoginScreen() {
         source={require("../assets/images/logo.png")}
         style={{
           width: 300,
-          height: 100,
+          height: 150,
           alignSelf: "center",
           
           

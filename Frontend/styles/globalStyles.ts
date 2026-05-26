@@ -1,29 +1,56 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, ViewStyle } from 'react-native';
 import { colors } from '../constants/colors';
+
+export const SCREEN_PADDING = 20;
+export const CARD_RADIUS = 20;
+export const CARD_PADDING = 16;
+export const CARD_SPACING = 12;
+export const CARD_BORDER_COLOR = "#E5E7EB";
+
+const pageContainer: ViewStyle = {
+  flex: 1,
+  backgroundColor: colors.background,
+};
+
+const screenContent: ViewStyle = {
+  paddingHorizontal: SCREEN_PADDING,
+};
+
+const cardBase: ViewStyle = {
+  backgroundColor: colors.surface,
+  borderRadius: CARD_RADIUS,
+  padding: CARD_PADDING,
+  borderWidth: 1,
+  borderColor: CARD_BORDER_COLOR,
+};
 
 export const styles = StyleSheet.create({
   // ROOT
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-    
-    
+  pageContainer,
 
-  },
+  root: pageContainer,
 
   body: {
     flex: 1,
   },
 
+  screenContent,
+
   bodyContent: {
-    padding: 16,
-    paddingBottom: 100,
+    ...screenContent,
+    paddingTop: 16,
+  },
+
+  cardBase,
+
+  cardSpacing: {
+    marginBottom: CARD_SPACING,
   },
 
   // ───────── HEADER ─────────
   header: {
     backgroundColor: colors.primary,
-    padding: 20,
+    padding: SCREEN_PADDING,
     paddingTop: 40,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -114,13 +141,10 @@ export const styles = StyleSheet.create({
 
   // ───────── ALERT CARD ─────────
   alertCard: {
+    ...cardBase,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    margin: 12,
-    marginLeft: 20,
-    marginRight: 20,
+    marginBottom: CARD_SPACING,
   },
 
   alertIcon: {
@@ -153,7 +177,6 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 10,
   },
 
   sectionLink: {
@@ -163,14 +186,10 @@ export const styles = StyleSheet.create({
 
   // ───────── VEHICLE CARD ─────────
   vehicleCard: {
+    ...cardBase,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    margin: 10,
-    marginLeft: 20,
-    marginRight: 20,
+    marginBottom: CARD_SPACING,
   },
 
   vehicleInfo: {
@@ -210,6 +229,168 @@ export const styles = StyleSheet.create({
     fontSize: 12,
   },
 
+    // ───────── TRIP CARD ─────────
+  tripGroupHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 6,
+  },
+
+  tripGroupTitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+
+  tripGroupCount: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+
+  tripCard: {
+    ...cardBase,
+    marginBottom: CARD_SPACING,
+  },
+
+  tripTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  tripTitleArea: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+
+  tripLocationIcon: {
+    color: colors.primary,
+    fontSize: 18,
+    marginRight: 6,
+    fontWeight: "bold",
+  },
+
+  tripDestination: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "bold",
+    flex: 1,
+  },
+
+  tripStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+
+  tripStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+
+  tripStatusText: {
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  tripInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+
+  tripInfoText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+
+  // ───────── VEHICLES PAGE ─────────
+  vehicleSearchArea: {
+    ...screenContent,
+    marginTop: 10,
+  },
+
+  vehicleSearchInputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: CARD_RADIUS,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: CARD_BORDER_COLOR,
+  },
+
+  vehicleSearchIcon: {
+    width: 18,
+    height: 18,
+    tintColor: "#9CA3AF",
+    marginRight: 8,
+  },
+
+  vehicleSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#111827",
+  },
+
+  vehicleList: {
+    flex: 1,
+    marginTop: 10,
+  },
+
+  vehicleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  vehicleGridCard: {
+    ...cardBase,
+    width: "48%",
+    marginBottom: CARD_SPACING,
+  },
+
+  vehicleGridImage: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    height: 80,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  vehicleGridName: {
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+
+  vehicleGridPlate: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  vehicleGridStatus: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+
+  vehicleGridStatusText: {
+    fontSize: 12,
+  },
+
   // ───────── TAB BAR ─────────
   tabBar: {
     position: 'absolute',
@@ -219,21 +400,15 @@ export const styles = StyleSheet.create({
     backgroundColor: '#fff',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 10,
+    alignItems: 'center',
     borderTopWidth: 1,
     borderColor: colors.border,
-    marginBottom: 45,
-    
-  },
-
-  backblack:{
-    width: 'auto',
-    height:  50,
-    backgroundColor: "#000"
   },
 
   tabItem: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   tabLabel: {
@@ -251,4 +426,120 @@ export const styles = StyleSheet.create({
   marginLeft: 5,
   marginRight: 10,
 },
+
+  // ───────── NOTIFICATIONS PAGE ─────────
+  notificationsHeader: {
+    height: 60,
+    paddingHorizontal: SCREEN_PADDING,
+    paddingVertical: 18,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  notificationsHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+
+  notificationsHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+
+  markAllText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#006D77",
+  },
+
+  notificationFiltersArea: {
+    backgroundColor: "#FFFFFF",
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+
+  notificationFiltersContent: {
+    paddingHorizontal: SCREEN_PADDING,
+    gap: 8,
+  },
+
+  notificationFilterButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginRight: 8,
+  },
+
+  notificationFilterButtonActive: {
+    backgroundColor: "#006D77",
+    borderColor: "#006D77",
+  },
+
+  notificationFilterText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+
+  notificationFilterTextActive: {
+    color: "#FFFFFF",
+  },
+
+  notificationsListContent: {
+    ...screenContent,
+    paddingTop: 16,
+  },
+
+  notificationCard: {
+    ...cardBase,
+    marginBottom: CARD_SPACING,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
+  notificationIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+
+  notificationIconText: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  notificationContent: {
+    flex: 1,
+  },
+
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#111827",
+    marginBottom: 3,
+  },
+
+  notificationMessage: {
+    fontSize: 15,
+    color: "#4B5563",
+    lineHeight: 20,
+  },
+
+  notificationDate: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 6,
+  },
 });
