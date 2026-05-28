@@ -10,6 +10,7 @@ type TripCardProps = {
   vehicle: string;
   plate: string;
   status: TripStatus;
+  onPress?: () => void;
 };
 
 export const TripCard = ({
@@ -19,6 +20,7 @@ export const TripCard = ({
   vehicle,
   plate,
   status,
+  onPress,
 }: TripCardProps) => {
   const getStatus = () => {
     switch (status) {
@@ -55,7 +57,11 @@ export const TripCard = ({
   const s = getStatus();
 
   return (
-    <TouchableOpacity style={styles.tripCard}>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={onPress}
+      style={styles.tripCard}
+    >
       <View style={styles.tripTop}>
         <View style={styles.tripTitleArea}>
           <MapPin
