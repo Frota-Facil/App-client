@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Bell, BellRing } from "lucide-react-native";
 import { styles } from '../../styles/globalStyles';
 
 type NotificationBadgeProps = {
@@ -7,12 +8,11 @@ type NotificationBadgeProps = {
 
 export const NotificationBadge = ({ count }: NotificationBadgeProps) => (
   <TouchableOpacity style={styles.bellWrapper}>
-    <Text>
-      <Image
-        source={require("../../assets/images/notificacaobranco.png")}
-        style={{ width: 22, height: 22 }}
-      />
-    </Text>
+    {count > 0 ? (
+      <BellRing size={22} color="#FFFFFF" />
+    ) : (
+      <Bell size={22} color="#FFFFFF" />
+    )}
     
     {count > 0 && (
       <View style={styles.badge}>
