@@ -25,6 +25,13 @@ export default function HomeScreen() {
     (vehicle) => vehicle.status === "available"
   );
 
+  const openTripDetails = (id: number) => {
+    router.push({
+      pathname: "/trips/[id]",
+      params: { id: String(id) },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <Header />
@@ -48,7 +55,11 @@ export default function HomeScreen() {
         </View>
 
         {todayTrips.map((trip) => (
-          <TripCard key={trip.id} {...trip} />
+          <TripCard
+            key={trip.id}
+            {...trip}
+            onPress={() => openTripDetails(trip.id)}
+          />
         ))}
 
         <View style={styles.tripGroupHeader}>
@@ -61,7 +72,11 @@ export default function HomeScreen() {
         </View>
 
         {nextTripsPreview.map((trip) => (
-          <TripCard key={trip.id} {...trip} />
+          <TripCard
+            key={trip.id}
+            {...trip}
+            onPress={() => openTripDetails(trip.id)}
+          />
         ))}
 
         <View style={styles.sectionHeader}>

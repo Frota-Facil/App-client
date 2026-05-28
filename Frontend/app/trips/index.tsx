@@ -15,6 +15,13 @@ export default function TripsScreen() {
     (trip) => trip.status === "scheduled" || trip.status === "in_progress"
   );
 
+  const openTripDetails = (id: number) => {
+    router.push({
+      pathname: "/trips/[id]",
+      params: { id: String(id) },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <PageHeader
@@ -31,7 +38,11 @@ export default function TripsScreen() {
         ]}
       >
         {activeTrips.map((trip) => (
-          <TripCard key={trip.id} {...trip} />
+          <TripCard
+            key={trip.id}
+            {...trip}
+            onPress={() => openTripDetails(trip.id)}
+          />
         ))}
       </ScrollView>
 
