@@ -1,6 +1,7 @@
 import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
 
 import { Header } from "../../components/layout/Hearder";
 import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
@@ -15,6 +16,10 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const todayTrips = trips.filter((trip) => trip.period === "today");
   const nextTrips = trips.filter((trip) => trip.period === "next");
+  const activeTrips = trips.filter(
+    (trip) => trip.status === "scheduled" || trip.status === "in_progress"
+  );
+  const nextTripsPreview = nextTrips.slice(0, 2);
 
   const availableVehicles = vehicles.filter(
     (vehicle) => vehicle.status === "available"
@@ -48,24 +53,30 @@ export default function HomeScreen() {
 
         <View style={styles.tripGroupHeader}>
           <Text style={styles.tripGroupTitle}>PRÓXIMAS</Text>
-          <Text style={styles.tripGroupCount}>
-            {nextTrips.length} viagem(ns)
-          </Text>
+          <TouchableOpacity onPress={() => router.push("/trips")}>
+            <Text style={styles.tripGroupCount}>
+              Ver todas ({activeTrips.length} viagens)
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {nextTrips.map((trip) => (
+        {nextTripsPreview.map((trip) => (
           <TripCard key={trip.id} {...trip} />
         ))}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Veículos recentes</Text>
 
-          <Text style={styles.sectionLink}>
-            Ver todos ({availableVehicles.length} disponíveis)
-          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/vehicles?filter=available")}
+          >
+            <Text style={styles.sectionLink}>
+              Ver todos ({availableVehicles.length} disponíveis)
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {vehicles.map((v) => (
+        {availableVehicles.map((v) => (
           <VehicleCard key={v.id} {...v} />
         ))}
       </ScrollView>

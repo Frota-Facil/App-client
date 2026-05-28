@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { styles } from "../../styles/globalStyles";
 import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
@@ -30,10 +30,31 @@ const filters: VehicleFilter[] = [
   "Manutenção",
 ];
 
+const getFilterFromParam = (
+  filterParam: string | string[] | undefined
+): VehicleFilter => {
+  const value = Array.isArray(filterParam) ? filterParam[0] : filterParam;
+
+  if (value === "available") {
+    return "Disponíveis";
+  }
+
+  return "Todos";
+};
+
 export default function VehiclesScreen() {
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<VehicleFilter>("Todos");
+  const { filter: filterParam } = useLocalSearchParams<{
+    filter?: string | string[];
+  }>();
+  const [filter, setFilter] = useState<VehicleFilter>(() =>
+    getFilterFromParam(filterParam)
+  );
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setFilter(getFilterFromParam(filterParam));
+  }, [filterParam]);
 
   const filteredVehicles = vehicles.filter((v) => {
     const matchSearch =

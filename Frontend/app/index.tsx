@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image
 } from "react-native";
+import { Eye, EyeClosed } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
@@ -14,6 +15,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState("carlos.mendes@municipio.gov.br");
   const [password, setPassword] = useState("123456");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = () => {
     // depois conectar com backend
@@ -76,25 +78,45 @@ export default function LoginScreen() {
           Senha
         </Text>
 
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={{
-            backgroundColor: "#F9FAFB",
-            borderRadius: 12,
-            padding: 14,
-            borderWidth: 1,
-            borderColor: "#E5E7EB",
-            marginBottom: 20,
-          }}
-        />
+        <View style={{ position: "relative", marginBottom: 20 }}>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            style={{
+              backgroundColor: "#F9FAFB",
+              borderRadius: 12,
+              padding: 14,
+              paddingRight: 48,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          />
+
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={{
+              position: "absolute",
+              right: 14,
+              top: 0,
+              bottom: 0,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            {showPassword ? (
+              <EyeClosed size={22} color="#6B7280" />
+            ) : (
+              <Eye size={22} color="#6B7280" />
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* BOTÃO */}
         <TouchableOpacity
           onPress={handleLogin}
           style={{
-            backgroundColor: "#0F766E",
+            backgroundColor: "#1B3A5C",
             padding: 16,
             borderRadius: 14,
             alignItems: "center",

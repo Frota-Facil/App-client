@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native";
+import { Clock3, MapPin } from "lucide-react-native";
 import { styles } from "../../styles/globalStyles";
 import { TripStatus } from "../../constants/trips";
 
@@ -57,7 +58,11 @@ export const TripCard = ({
     <TouchableOpacity style={styles.tripCard}>
       <View style={styles.tripTop}>
         <View style={styles.tripTitleArea}>
-          <Text style={styles.tripLocationIcon}>◎</Text>
+          <MapPin
+            size={18}
+            color="#1B3A5C"
+            style={styles.tripLocationIcon}
+          />
           <Text style={styles.tripDestination}>{destination}</Text>
         </View>
 
@@ -70,8 +75,11 @@ export const TripCard = ({
       </View>
 
       <View style={styles.tripInfoRow}>
-        <Text style={styles.tripInfoText}>◷ {date} · {time}</Text>
-        <Text style={styles.tripInfoText}>🚙 {vehicle} · {plate}</Text>
+        <View style={styles.tripInfoItem}>
+          <Clock3 size={14} color="#6B7280" />
+          <Text style={styles.tripInfoText}>{date} · {time}</Text>
+        </View>
+        <Text style={styles.tripInfoText}>{vehicle} · {plate}</Text>
       </View>
     </TouchableOpacity>
   );

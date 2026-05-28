@@ -268,10 +268,7 @@ export const styles = StyleSheet.create({
   },
 
   tripLocationIcon: {
-    color: colors.primary,
-    fontSize: 18,
     marginRight: 6,
-    fontWeight: "bold",
   },
 
   tripDestination: {
@@ -307,6 +304,12 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: "wrap",
     gap: 10,
+  },
+
+  tripInfoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
 
   tripInfoText: {
