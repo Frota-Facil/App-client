@@ -5,8 +5,10 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 import { styles } from "../../styles/globalStyles";
 import {
@@ -20,6 +22,7 @@ import { FilterTabs } from "../../components/layout/FilterTabs";
 import { RequestCard } from "../../components/cards/RequestCard";
 import { requests } from "../../constants/requests";
 import { router } from "expo-router";
+import { colors } from "../../constants/colors";
 
 type RequestFilter = "Todas" | "Pendentes" | "Aprovadas" | "Recusadas";
 
@@ -56,7 +59,13 @@ export default function SolicitaçõesScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
+    <SafeAreaView style={screenStyles.root} edges={["top"]}>
+      <StatusBar
+        backgroundColor={colors.surface}
+        style="dark"
+        translucent={false}
+      />
+
       <PageHeader
         title="Minhas solicitações"
         leftIconSource={require("../../assets/images/seta-esquerda.png")}
@@ -69,24 +78,26 @@ export default function SolicitaçõesScreen() {
         }
       />
 
-      <FilterTabs options={filters} value={filter} onChange={setFilter} />
+      <View style={screenStyles.contentArea}>
+        <FilterTabs options={filters} value={filter} onChange={setFilter} />
 
-      {/* LISTA */}
-      <ScrollView
-        style={styles.body}
-        onScrollBeginDrag={() => animateRequestButton(false)}
-        onMomentumScrollBegin={() => animateRequestButton(false)}
-        onMomentumScrollEnd={() => animateRequestButton(true)}
-        onScrollEndDrag={() => animateRequestButton(true)}
-        contentContainerStyle={[
-          styles.bodyContent,
-          { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
-        ]}
-      >
-        {filteredRequests.map((item) => (
-          <RequestCard key={item.id} {...item} />
-        ))}
-      </ScrollView>
+        {/* LISTA */}
+        <ScrollView
+          style={styles.body}
+          onScrollBeginDrag={() => animateRequestButton(false)}
+          onMomentumScrollBegin={() => animateRequestButton(false)}
+          onMomentumScrollEnd={() => animateRequestButton(true)}
+          onScrollEndDrag={() => animateRequestButton(true)}
+          contentContainerStyle={[
+            styles.bodyContent,
+            { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
+          ]}
+        >
+          {filteredRequests.map((item) => (
+            <RequestCard key={item.id} {...item} />
+          ))}
+        </ScrollView>
+      </View>
 
       <Animated.View
         pointerEvents={showRequestButton ? "auto" : "none"}
@@ -124,6 +135,16 @@ export default function SolicitaçõesScreen() {
 }
 
 const screenStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.surface,
+  },
+
+  contentArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+
   requestFloatingButtonWrapper: {
     position: "absolute",
     right: 20,

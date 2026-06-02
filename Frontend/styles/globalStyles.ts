@@ -51,7 +51,7 @@ export const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     padding: SCREEN_PADDING,
-    paddingTop: 40,
+    paddingTop: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
@@ -458,7 +458,7 @@ export const styles = StyleSheet.create({
   markAllText: {
     fontSize: 13,
     fontWeight: "bold",
-    color: "#006D77",
+    color: colors.primary,
   },
 
   notificationFiltersArea: {
@@ -483,8 +483,8 @@ export const styles = StyleSheet.create({
   },
 
   notificationFilterButtonActive: {
-    backgroundColor: "#006D77",
-    borderColor: "#006D77",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
 
   notificationFilterText: {

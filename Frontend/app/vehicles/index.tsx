@@ -5,9 +5,11 @@ import {
   ScrollView,
   TextInput,
   Image,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
 import { styles } from "../../styles/globalStyles";
 import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
@@ -15,6 +17,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { FilterTabs } from "../../components/layout/FilterTabs";
 import { vehicles } from "../../constants/data";
+import { colors } from "../../constants/colors";
 
 type VehicleFilter =
   | "Todos"
@@ -86,7 +89,13 @@ export default function VehiclesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
+    <SafeAreaView style={screenStyles.root} edges={["top"]}>
+      <StatusBar
+        backgroundColor={colors.surface}
+        style="dark"
+        translucent={false}
+      />
+
       <PageHeader
         title="Veículos"
         subtitle="Frota municipal"
@@ -100,74 +109,88 @@ export default function VehiclesScreen() {
         }
       />
 
-      <FilterTabs options={filters} value={filter} onChange={setFilter} />
+      <View style={screenStyles.contentArea}>
+        <FilterTabs options={filters} value={filter} onChange={setFilter} />
 
-      {/* BUSCA COM ÍCONE */}
-      <View style={styles.vehicleSearchArea}>
-        <View style={styles.vehicleSearchInputWrapper}>
-          <Image
-            source={require("../../assets/images/lupa.png")}
-            style={styles.vehicleSearchIcon}
-          />
+        {/* BUSCA COM ÍCONE */}
+        <View style={styles.vehicleSearchArea}>
+          <View style={styles.vehicleSearchInputWrapper}>
+            <Image
+              source={require("../../assets/images/lupa.png")}
+              style={styles.vehicleSearchIcon}
+            />
 
-          <TextInput
-            placeholder="Buscar por modelo ou placa"
-            placeholderTextColor="#9CA3AF"
-            value={search}
-            onChangeText={setSearch}
-            style={styles.vehicleSearchInput}
-          />
+            <TextInput
+              placeholder="Buscar por modelo ou placa"
+              placeholderTextColor="#9CA3AF"
+              value={search}
+              onChangeText={setSearch}
+              style={styles.vehicleSearchInput}
+            />
+          </View>
         </View>
-      </View>
 
-      {/* LISTA */}
-      <ScrollView
-        style={styles.vehicleList}
-        contentContainerStyle={[
-          styles.screenContent,
-          { paddingBottom: getTabBarContentPadding(insets.bottom) },
-        ]}
-      >
-        <View style={styles.vehicleGrid}>
-          {filteredVehicles.map((v) => {
-            const status = getStatusStyle(v.status);
+        {/* LISTA */}
+        <ScrollView
+          style={styles.vehicleList}
+          contentContainerStyle={[
+            styles.screenContent,
+            { paddingBottom: getTabBarContentPadding(insets.bottom) },
+          ]}
+        >
+          <View style={styles.vehicleGrid}>
+            {filteredVehicles.map((v) => {
+              const status = getStatusStyle(v.status);
 
-            return (
-              <View key={v.id} style={styles.vehicleGridCard}>
-                {/* IMAGEM */}
-                <View style={styles.vehicleGridImage}>
-                  <Text>🚗</Text>
-                </View>
+              return (
+                <View key={v.id} style={styles.vehicleGridCard}>
+                  {/* IMAGEM */}
+                  <View style={styles.vehicleGridImage}>
+                    <Text>🚗</Text>
+                  </View>
 
-                {/* INFO */}
-                <Text style={styles.vehicleGridName}>{v.name}</Text>
+                  {/* INFO */}
+                  <Text style={styles.vehicleGridName}>{v.name}</Text>
 
-                <Text style={styles.vehicleGridPlate}>{v.plate}</Text>
+                  <Text style={styles.vehicleGridPlate}>{v.plate}</Text>
 
-                {/* STATUS */}
-                <View
-                  style={[
-                    styles.vehicleGridStatus,
-                    { backgroundColor: status.bg },
-                  ]}
-                >
-                  <Text
+                  {/* STATUS */}
+                  <View
                     style={[
-                      styles.vehicleGridStatusText,
-                      { color: status.text },
+                      styles.vehicleGridStatus,
+                      { backgroundColor: status.bg },
                     ]}
                   >
-                    {status.label}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.vehicleGridStatusText,
+                        { color: status.text },
+                      ]}
+                    >
+                      {status.label}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
-      </ScrollView>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
 
       <TabBar />
 
     </SafeAreaView>
   );
 }
+
+const screenStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.surface,
+  },
+
+  contentArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+});
