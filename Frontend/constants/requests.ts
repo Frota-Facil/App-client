@@ -42,5 +42,37 @@ export const requests: Request[] = [
   date: "2025-04-22",
   location: "Distrito Industrial",
   status: "Recusada",
-}
+},
+{
+  id: 5,
+  name: "Toyota Hilux",
+  plate: "GOV-9P77",
+  date: "2025-04-20",
+  location: "Almoxarifado Central",
+  status: "Concluída",
+},
+{
+  id: 6,
+  name: "VW Saveiro",
+  plate: "RIO-5K22",
+  date: "2025-04-22",
+  location: "Distrito Industrial",
+  status: "Recusada",
+},{
+  id: 7,
+  name: "Toyota Hilux",
+  plate: "GOV-9P77",
+  date: "2025-04-20",
+  location: "Almoxarifado Central",
+  status: "Concluída",
+},
+{
+  id: 8,
+  name: "VW Saveiro",
+  plate: "RIO-5K22",
+  date: "2025-04-22",
+  location: "Distrito Industrial",
+  status: "Recusada",
+},
+
 ];

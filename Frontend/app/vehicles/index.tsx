@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { styles } from "../../styles/globalStyles";
 import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { FilterTabs } from "../../components/layout/FilterTabs";
 import { vehicles } from "../../constants/data";
 
@@ -91,6 +92,12 @@ export default function VehiclesScreen() {
         subtitle="Frota municipal"
         leftIconSource={require("../../assets/images/seta-esquerda.png")}
         onBackPress={() => router.back()}
+        rightContent={
+          <HeaderHelpButton
+            title="Como usar Veículos"
+            message="Nesta tela você pode visualizar os veículos cadastrados, conferir a disponibilidade e usar os filtros para encontrar veículos disponíveis, em uso ou em manutenção."
+          />
+        }
       />
 
       <FilterTabs options={filters} value={filter} onChange={setFilter} />
