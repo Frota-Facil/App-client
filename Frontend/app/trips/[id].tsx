@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Car, Clock3, MapPin, Play, Users } from "lucide-react-native";
+import { Car, Clock3, MapPin, Play  } from "lucide-react-native";
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import {
@@ -157,7 +157,7 @@ export default function TripDetailsScreen() {
           <Text style={localStyles.purposeText}>{trip.purpose}</Text>
         </View>
 
-        <View style={localStyles.card}>
+        <View style={[localStyles.card, localStyles.gapcard]}>
           <DetailRow
             icon={<Car size={18} color="#006D77" />}
             label="Veículo"
@@ -176,11 +176,7 @@ export default function TripDetailsScreen() {
             value={trip.endTime}
           />
 
-          <DetailRow
-            icon={<Users size={18} color="#006D77" />}
-            label="Passageiros"
-            value={String(trip.passengers)}
-          />
+          
         </View>
       </ScrollView>
 
@@ -221,12 +217,21 @@ const localStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: CARD_BORDER_COLOR,
     padding: 20,
+  
     marginBottom: 16,
     shadowColor: "#000000",
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
+
+
+  gapcard: {
+    gap: 20,
+  },
+
+
+
 
   summaryTop: {
     flexDirection: "row",
@@ -294,7 +299,6 @@ const localStyles = StyleSheet.create({
   detailRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
   },
 
   detailIconWrapper: {
