@@ -15,6 +15,7 @@ import {
   TabBar,
 } from "../../components/layout/TabBar";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { FilterTabs } from "../../components/layout/FilterTabs";
 import { RequestCard } from "../../components/cards/RequestCard";
 import { requests } from "../../constants/requests";
@@ -60,6 +61,12 @@ export default function SolicitaçõesScreen() {
         title="Minhas solicitações"
         leftIconSource={require("../../assets/images/seta-esquerda.png")}
         onBackPress={() => router.back()}
+        rightContent={
+          <HeaderHelpButton
+            title="Como usar Solicitações"
+            message="Nesta tela você acompanha suas solicitações de veículos. Use os filtros para ver solicitações pendentes, aprovadas, recusadas, concluídas ou em andamento. Para criar uma nova solicitação, use o botão Solicitar veículo."
+          />
+        }
       />
 
       <FilterTabs options={filters} value={filter} onChange={setFilter} />

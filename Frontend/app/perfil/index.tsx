@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Bell, ChevronDown, Lock, LogOut, Save } from "lucide-react-native";
 
 import { PageHeader } from "../../components/layout/PageHeader";
+import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
 import { SCREEN_PADDING, styles as globalStyles } from "../../styles/globalStyles";
@@ -91,6 +92,12 @@ export default function PerfilScreen() {
         title="Perfil"
         showBackButton
         onBackPress={() => router.back()}
+        rightContent={
+          <HeaderHelpButton
+            title="Como usar Perfil"
+            message="Nesta tela você pode visualizar e atualizar seus dados pessoais, alterar sua senha, configurar notificações e sair da conta."
+          />
+        }
       />
 
       <ScrollView
