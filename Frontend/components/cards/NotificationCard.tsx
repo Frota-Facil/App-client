@@ -8,6 +8,7 @@ type Props = {
   message: string;
   date: string;
   type: NotificationType;
+  read?: boolean;
 };
 
 export const NotificationCard: React.FC<Props> = ({
@@ -15,6 +16,7 @@ export const NotificationCard: React.FC<Props> = ({
   message,
   date,
   type,
+  read = false,
 }) => {
   const getNotificationStyle = () => {
     switch (type) {
@@ -37,7 +39,15 @@ export const NotificationCard: React.FC<Props> = ({
   const notificationStyle = getNotificationStyle();
 
   return (
-    <TouchableOpacity style={styles.notificationCard}>
+    <TouchableOpacity
+      style={[
+        styles.notificationCard,
+        read && {
+          opacity: 0.62,
+          backgroundColor: "#F9FAFB",
+        },
+      ]}
+    >
       <View
         style={[
           styles.notificationIconWrapper,
