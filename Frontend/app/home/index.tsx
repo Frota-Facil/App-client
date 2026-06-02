@@ -1,7 +1,15 @@
 import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useIsFocused } from "@react-navigation/native";
 
 import { Header } from "../../components/layout/Hearder";
 import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
@@ -10,10 +18,12 @@ import { TripCard } from "../../components/cards/TripCard";
 
 import { vehicles } from "../../constants/data";
 import { trips } from "../../constants/trips";
+import { colors } from "../../constants/colors";
 import { styles } from "../../styles/globalStyles";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const todayTrips = trips.filter((trip) => trip.period === "today");
   const nextTrips = trips.filter((trip) => trip.period === "next");
   const activeTrips = trips.filter(
@@ -33,11 +43,21 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      <Header />
+    <SafeAreaView style={homeStyles.root} edges={["top"]}>
+      {isFocused && (
+        <StatusBar
+          backgroundColor={colors.primary}
+          style="light"
+          translucent={false}
+        />
+      )}
+
+      <View style={homeStyles.headerArea}>
+        <Header />
+      </View>
 
       <ScrollView
-        style={styles.body}
+        style={[styles.body, homeStyles.body]}
         contentContainerStyle={[
           styles.bodyContent,
           { paddingBottom: getTabBarContentPadding(insets.bottom) },
@@ -100,3 +120,18 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+const homeStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.primary,
+  },
+
+  headerArea: {
+    backgroundColor: colors.background,
+  },
+
+  body: {
+    backgroundColor: colors.background,
+  },
+});

@@ -6,18 +6,17 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
+import { PageHeader } from "../../components/layout/PageHeader";
+import { colors } from "../../constants/colors";
+import { SCREEN_PADDING } from "../../styles/globalStyles";
 
-
-
+const ACTION_PRIMARY = colors.primary;
 
 export default function MakeRequest() {
- 
-
   const [date, setDate] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -27,20 +26,12 @@ export default function MakeRequest() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Image
-            source={require("../../assets/images/seta-esquerda.png")}
-            style={styles.backIcon}
-          />
-        </TouchableOpacity>
-
-        <View style={{ marginLeft: 10 }}>
-          <Text style={styles.title}>Nova solicitação</Text>
-          <Text style={styles.subtitle}>Preencha os dados da viagem</Text>
-        </View>
-      </View>
+      <PageHeader
+        title="Nova solicitação"
+        subtitle="Preencha os dados da viagem"
+        showBackButton
+        onBackPress={() => router.back()}
+      />
 
       <ScrollView contentContainerStyle={styles.body}>
         {/* DATA */}
@@ -50,6 +41,7 @@ export default function MakeRequest() {
           value={date}
           onChangeText={setDate}
           style={styles.input}
+          placeholderTextColor={colors.textMuted}
         />
 
         {/* HORÁRIOS */}
@@ -61,6 +53,7 @@ export default function MakeRequest() {
               value={start}
               onChangeText={setStart}
               style={styles.input}
+              placeholderTextColor={colors.textMuted}
             />
           </View>
 
@@ -71,6 +64,7 @@ export default function MakeRequest() {
               value={end}
               onChangeText={setEnd}
               style={styles.input}
+              placeholderTextColor={colors.textMuted}
             />
           </View>
         </View>
@@ -82,6 +76,7 @@ export default function MakeRequest() {
           value={destination}
           onChangeText={setDestination}
           style={styles.input}
+          placeholderTextColor={colors.textMuted}
         />
 
         {/* FINALIDADE */}
@@ -90,14 +85,15 @@ export default function MakeRequest() {
           placeholder="Motivo da solicitação"
           value={reason}
           onChangeText={setReason}
-          style={[styles.input, { height: 100 }]}
+          style={[styles.input, styles.textArea]}
           multiline
+          placeholderTextColor={colors.textMuted}
         />
 
         {/* VEÍCULO (mockado por enquanto) */}
         <Text style={styles.label}>Veículo preferido</Text>
-        <View style={styles.input}>
-          <Text>Fiat Strada — BRA-2E19</Text>
+        <View style={styles.selectBox}>
+          <Text style={styles.selectText}>Fiat Strada — BRA-2E19</Text>
         </View>
 
         {/* PASSAGEIROS */}
@@ -107,32 +103,33 @@ export default function MakeRequest() {
           onChangeText={setPassengers}
           style={styles.input}
           keyboardType="numeric"
+          placeholderTextColor={colors.textMuted}
         />
 
         {/* BOTÕES */}
         <View style={styles.buttons}>
-        <TouchableOpacity
+          <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
             onPress={() => router.back()}
-        >
+          >
             <Text style={styles.cancelText}>Cancelar</Text>
-        </TouchableOpacity>
+          </TouchableOpacity>
 
-        <TouchableOpacity
+          <TouchableOpacity
             style={[styles.button, styles.saveButton]}
             onPress={() => {
-            console.log({
+              console.log({
                 date,
                 start,
                 end,
                 destination,
                 reason,
                 passengers,
-            });
+              });
             }}
-        >
+          >
             <Text style={styles.saveText}>Salvar</Text>
-        </TouchableOpacity>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -140,52 +137,61 @@ export default function MakeRequest() {
 }
 
 const styles = StyleSheet.create({
-  
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
-  },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#FFFFFF",
-  },
-
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  subtitle: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 4,
+    backgroundColor: colors.background,
   },
 
   body: {
-    padding: 20,
+    paddingHorizontal: SCREEN_PADDING,
+    paddingTop: 20,
+    paddingBottom: 28,
   },
 
   label: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "600",
     marginBottom: 6,
     marginTop: 12,
-    color: "#374151",
+    color: colors.textSecondary,
   },
 
   input: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 12,
+    minHeight: 52,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
+    color: colors.textPrimary,
+    fontSize: 15,
+  },
+
+  textArea: {
+    height: 100,
+    textAlignVertical: "top",
+  },
+
+  selectBox: {
+    minHeight: 52,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "center",
+  },
+
+  selectText: {
+    color: colors.textPrimary,
+    fontSize: 15,
   },
 
   row: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
   },
 
   flex: {
@@ -193,47 +199,37 @@ const styles = StyleSheet.create({
   },
 
   buttons: {
-
     flexDirection: "row",
-    marginTop: 20,
-    gap: 10,
-    
+    marginTop: 24,
+    gap: 12,
   },
-  
 
-button: {
-  flex: 1,
-  padding: 14,
-  borderRadius: 30,
-  alignItems: "center",
-},
+  button: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
 
-cancelButton: {
-  backgroundColor: "#E5E7EB",
-},
+  cancelButton: {
+    backgroundColor: "#E5E7EB",
+  },
 
-saveButton: {
-  backgroundColor: "#2563EB",
-},
+  saveButton: {
+    backgroundColor: ACTION_PRIMARY,
+  },
 
-cancelText: {
-  color: "#374151",
-  fontWeight: "bold",
-},
+  cancelText: {
+    color: colors.textPrimary,
+    fontWeight: "700",
+    fontSize: 15,
+  },
 
-saveText: {
-  color: "#FFF",
-  fontWeight: "bold",
-},
-
-
-
-backIcon: {
-  width: 20,
-  height: 20,
-  marginLeft: 5,
-  marginRight: 10,
-},
- 
-  
+  saveText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 15,
+  },
 });

@@ -1,14 +1,16 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, ChevronDown, Lock, LogOut, Save } from "lucide-react-native";
+import { StatusBar } from "expo-status-bar";
+import { LogOut, Pencil } from "lucide-react-native";
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
@@ -16,7 +18,7 @@ import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar"
 import { colors } from "../../constants/colors";
 import { SCREEN_PADDING, styles as globalStyles } from "../../styles/globalStyles";
 
-const PROFILE_PRIMARY = "#005C6B";
+const PROFILE_PRIMARY = colors.primary;
 
 const user = {
   initials: "CM",
@@ -31,34 +33,72 @@ const user = {
   department: "Secretaria de Obras",
 };
 
+type EditableProfileField = "fullName" | "phone";
+
 type ProfileFieldProps = {
   label: string;
   value: string;
-  select?: boolean;
+  editable?: boolean;
+  isEditing?: boolean;
+  keyboardType?: "default" | "phone-pad";
+  inputRef?: React.RefObject<TextInput | null>;
+  onChangeText?: (value: string) => void;
+  onEditPress?: () => void;
+  onBlur?: () => void;
 };
 
 type ProfileActionButtonProps = {
   title: string;
   icon: React.ReactNode;
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "danger";
   onPress: () => void;
 };
 
-function ProfileField({ label, value, select }: ProfileFieldProps) {
-  const Content = select ? TouchableOpacity : View;
-
+function ProfileField({
+  label,
+  value,
+  editable,
+  isEditing,
+  keyboardType = "default",
+  inputRef,
+  onChangeText,
+  onEditPress,
+  onBlur,
+}: ProfileFieldProps) {
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
 
-      <Content
-        activeOpacity={select ? 0.7 : undefined}
-        style={styles.fieldBox}
-      >
-        <Text style={styles.fieldValue}>{value}</Text>
+      <View style={styles.fieldBox}>
+        <TextInput
+          ref={inputRef}
+          value={value}
+          editable={Boolean(editable && isEditing)}
+          keyboardType={keyboardType}
+          onChangeText={onChangeText}
+          onBlur={onBlur}
+          style={[styles.fieldValue, !editable && styles.readOnlyFieldValue]}
+          placeholderTextColor={colors.textMuted}
+        />
 
-        {select && <ChevronDown color="#111827" size={20} strokeWidth={2.4} />}
-      </Content>
+        {editable && (
+          <TouchableOpacity
+            accessibilityLabel={`Editar ${label}`}
+            activeOpacity={0.7}
+            onPress={onEditPress}
+            style={[
+              styles.editFieldButton,
+              isEditing && styles.editFieldButtonActive,
+            ]}
+          >
+            <Pencil
+              color={isEditing ? "#FFFFFF" : PROFILE_PRIMARY}
+              size={16}
+              strokeWidth={2.4}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -66,7 +106,7 @@ function ProfileField({ label, value, select }: ProfileFieldProps) {
 function ProfileActionButton({
   title,
   icon,
-  variant = "secondary",
+  variant = "danger",
   onPress,
 }: ProfileActionButtonProps) {
   return (
@@ -85,9 +125,33 @@ function ProfileActionButton({
 
 export default function PerfilScreen() {
   const insets = useSafeAreaInsets();
+  const [profile, setProfile] = useState({
+    fullName: user.fullName,
+    phone: user.phone,
+  });
+  const [editingField, setEditingField] =
+    useState<EditableProfileField | null>(null);
+  const fullNameRef = useRef<TextInput | null>(null);
+  const phoneRef = useRef<TextInput | null>(null);
+
+  const startEditing = (
+    field: EditableProfileField,
+    ref: React.RefObject<TextInput | null>,
+  ) => {
+    setEditingField(field);
+    setTimeout(() => {
+      ref.current?.focus();
+    }, 100);
+  };
 
   return (
-    <SafeAreaView style={globalStyles.root} edges={["top"]}>
+    <SafeAreaView style={styles.root} edges={["top"]}>
+      <StatusBar
+        backgroundColor={colors.surface}
+        style="dark"
+        translucent={false}
+      />
+
       <PageHeader
         title="Perfil"
         showBackButton
@@ -95,13 +159,13 @@ export default function PerfilScreen() {
         rightContent={
           <HeaderHelpButton
             title="Como usar Perfil"
-            message="Nesta tela você pode visualizar e atualizar seus dados pessoais, alterar sua senha, configurar notificações e sair da conta."
+            message="Nesta tela você pode visualizar seus dados pessoais e editar apenas nome completo e telefone."
           />
         }
       />
 
       <ScrollView
-        style={globalStyles.body}
+        style={[globalStyles.body, styles.body]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
@@ -113,42 +177,51 @@ export default function PerfilScreen() {
             <Text style={styles.avatarText}>{user.initials}</Text>
           </View>
 
-          <Text style={styles.profileName}>{user.name}</Text>
+          <Text style={styles.profileName}>{profile.fullName}</Text>
           <Text style={styles.profileRole}>{user.role}</Text>
         </View>
 
-        <ProfileField label="Nome completo" value={user.fullName} />
+        <ProfileField
+          label="Nome completo"
+          value={profile.fullName}
+          editable
+          isEditing={editingField === "fullName"}
+          inputRef={fullNameRef}
+          onChangeText={(fullName) =>
+            setProfile((currentProfile) => ({
+              ...currentProfile,
+              fullName,
+            }))
+          }
+          onEditPress={() => startEditing("fullName", fullNameRef)}
+          onBlur={() => setEditingField(null)}
+        />
         <ProfileField label="Matrícula" value={user.registration} />
         <ProfileField label="CPF" value={user.cpf} />
         <ProfileField label="Email" value={user.email} />
-        <ProfileField label="Telefone" value={user.phone} />
+        <ProfileField
+          label="Telefone"
+          value={profile.phone}
+          editable
+          isEditing={editingField === "phone"}
+          keyboardType="phone-pad"
+          inputRef={phoneRef}
+          onChangeText={(phone) =>
+            setProfile((currentProfile) => ({
+              ...currentProfile,
+              phone,
+            }))
+          }
+          onEditPress={() => startEditing("phone", phoneRef)}
+          onBlur={() => setEditingField(null)}
+        />
         <ProfileField label="CNH" value={user.cnh} />
         <ProfileField
           label="Secretaria/Departamento"
           value={user.department}
-          select
         />
 
         <View style={styles.actions}>
-          <ProfileActionButton
-            title="Salvar alterações"
-            icon={<Save color="#FFFFFF" size={18} strokeWidth={2.4} />}
-            variant="primary"
-            onPress={() => console.log("Salvar alterações")}
-          />
-
-          <ProfileActionButton
-            title="Alterar senha"
-            icon={<Lock color="#111827" size={18} strokeWidth={2.2} />}
-            onPress={() => console.log("Alterar senha")}
-          />
-
-          <ProfileActionButton
-            title="Configurar notificações"
-            icon={<Bell color="#111827" size={18} strokeWidth={2.2} />}
-            onPress={() => console.log("Configurar notificações")}
-          />
-
           <ProfileActionButton
             title="Sair"
             icon={<LogOut color="#EF4444" size={18} strokeWidth={2.2} />}
@@ -164,6 +237,15 @@ export default function PerfilScreen() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.surface,
+  },
+
+  body: {
+    backgroundColor: colors.background,
+  },
+
   content: {
     paddingHorizontal: SCREEN_PADDING,
     paddingTop: 20,
@@ -229,12 +311,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
   },
 
   fieldValue: {
     flex: 1,
     color: "#0D1B2A",
     fontSize: 16,
+    padding: 0,
+  },
+
+  readOnlyFieldValue: {
+    color: colors.textSecondary,
+  },
+
+  editFieldButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E6F3F5",
+  },
+
+  editFieldButtonActive: {
+    backgroundColor: PROFILE_PRIMARY,
   },
 
   actions: {
@@ -244,7 +345,7 @@ const styles = StyleSheet.create({
 
   actionButton: {
     minHeight: 52,
-    borderRadius: 16,
+    borderRadius: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -254,24 +355,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 16,
     fontWeight: "700",
-  },
-
-  primaryButton: {
-    backgroundColor: PROFILE_PRIMARY,
-  },
-
-  primaryButtonText: {
-    color: "#FFFFFF",
-  },
-
-  secondaryButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  secondaryButtonText: {
-    color: "#111827",
   },
 
   dangerButton: {

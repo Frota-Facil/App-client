@@ -136,7 +136,7 @@ export default function TripDetailsScreen() {
               <Text style={localStyles.sectionLabel}>DESTINO</Text>
 
               <View style={localStyles.destinationRow}>
-                <MapPin size={22} color="#006D77" />
+                <MapPin size={22} color={colors.primary} />
                 <Text style={localStyles.destinationText}>
                   {trip.destination}
                 </Text>
@@ -159,19 +159,19 @@ export default function TripDetailsScreen() {
 
         <View style={[localStyles.card, localStyles.gapcard]}>
           <DetailRow
-            icon={<Car size={18} color="#006D77" />}
+            icon={<Car size={18} color={colors.primary} />}
             label="Veículo"
             value={`${trip.vehicle} • ${trip.plate}`}
           />
 
           <DetailRow
-            icon={<Clock3 size={18} color="#006D77" />}
+            icon={<Clock3 size={18} color={colors.primary} />}
             label="Horário de início"
             value={trip.startTime}
           />
 
           <DetailRow
-            icon={<Clock3 size={18} color="#006D77" />}
+            icon={<Clock3 size={18} color={colors.primary} />}
             label="Horário previsto de término"
             value={trip.endTime}
           />
@@ -343,7 +343,7 @@ const localStyles = StyleSheet.create({
   actionButton: {
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#005C6B",
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",

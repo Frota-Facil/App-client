@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { CheckCheck } from "lucide-react-native";
 
 import { styles } from "../../styles/globalStyles";
@@ -25,6 +26,7 @@ import {
   notifications,
   NotificationFilter,
 } from "../../constants/notifications";
+import { colors } from "../../constants/colors";
 
 export default function AvisosScreen() {
   const insets = useSafeAreaInsets();
@@ -60,7 +62,13 @@ export default function AvisosScreen() {
       : notificationItems.filter((item) => item.category === filter);
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
+    <SafeAreaView style={screenStyles.root} edges={["top"]}>
+      <StatusBar
+        backgroundColor={colors.surface}
+        style="dark"
+        translucent={false}
+      />
+
       <PageHeader
         title="Notificações"
         leftIconSource={require("../../assets/images/seta-esquerda.png")}
@@ -75,30 +83,32 @@ export default function AvisosScreen() {
         }
       />
 
-      <FilterTabs options={filters} value={filter} onChange={setFilter} />
+      <View style={screenStyles.contentArea}>
+        <FilterTabs options={filters} value={filter} onChange={setFilter} />
 
-      <ScrollView
-        style={styles.body}
-        onScrollBeginDrag={() => animateMarkAllButton(false)}
-        onMomentumScrollBegin={() => animateMarkAllButton(false)}
-        onMomentumScrollEnd={() => animateMarkAllButton(true)}
-        onScrollEndDrag={() => animateMarkAllButton(true)}
-        contentContainerStyle={[
-          styles.notificationsListContent,
-          { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
-        ]}
-      >
-        {filteredNotifications.map((item) => (
-          <NotificationCard
-            key={item.id}
-            title={item.title}
-            message={item.message}
-            date={item.date}
-            type={item.type}
-            read={item.read}
-          />
-        ))}
-      </ScrollView>
+        <ScrollView
+          style={styles.body}
+          onScrollBeginDrag={() => animateMarkAllButton(false)}
+          onMomentumScrollBegin={() => animateMarkAllButton(false)}
+          onMomentumScrollEnd={() => animateMarkAllButton(true)}
+          onScrollEndDrag={() => animateMarkAllButton(true)}
+          contentContainerStyle={[
+            styles.notificationsListContent,
+            { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
+          ]}
+        >
+          {filteredNotifications.map((item) => (
+            <NotificationCard
+              key={item.id}
+              title={item.title}
+              message={item.message}
+              date={item.date}
+              type={item.type}
+              read={item.read}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       <Animated.View
         pointerEvents={showMarkAllButton ? "auto" : "none"}
@@ -136,6 +146,16 @@ export default function AvisosScreen() {
 }
 
 const screenStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.surface,
+  },
+
+  contentArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
