@@ -1,6 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,20 +31,8 @@ export default function AvisosScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<NotificationFilter>("Todas");
   const [notificationItems, setNotificationItems] = useState(notifications);
-  const [showMarkAllButton, setShowMarkAllButton] = useState(true);
-  const markAllButtonAnimation = useRef(new Animated.Value(1)).current;
 
   const filters: NotificationFilter[] = ["Todas", "Aprovadas", "Recusadas"];
-
-  const animateMarkAllButton = (visible: boolean) => {
-    setShowMarkAllButton(visible);
-
-    Animated.timing(markAllButtonAnimation, {
-      toValue: visible ? 1 : 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  };
 
   const handleMarkAllAsRead = () => {
     setNotificationItems((prev) =>
@@ -88,10 +75,6 @@ export default function AvisosScreen() {
 
         <ScrollView
           style={styles.body}
-          onScrollBeginDrag={() => animateMarkAllButton(false)}
-          onMomentumScrollBegin={() => animateMarkAllButton(false)}
-          onMomentumScrollEnd={() => animateMarkAllButton(true)}
-          onScrollEndDrag={() => animateMarkAllButton(true)}
           contentContainerStyle={[
             styles.notificationsListContent,
             { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
@@ -110,21 +93,11 @@ export default function AvisosScreen() {
         </ScrollView>
       </View>
 
-      <Animated.View
-        pointerEvents={showMarkAllButton ? "auto" : "none"}
+      <View
         style={[
           screenStyles.markAllFloatingButtonWrapper,
           {
             bottom: getTabBarHeight(insets.bottom) + 16,
-            opacity: markAllButtonAnimation,
-            transform: [
-              {
-                translateY: markAllButtonAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [12, 0],
-                }),
-              },
-            ],
           },
         ]}
       >
@@ -138,7 +111,7 @@ export default function AvisosScreen() {
             Marcar todos
           </Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
 
       <TabBar />
     </SafeAreaView>
