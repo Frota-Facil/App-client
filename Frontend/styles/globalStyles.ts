@@ -190,11 +190,31 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: CARD_SPACING,
+    shadowColor: "#0D1B2A",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  vehicleCardImageWrapper: {
+    width: 66,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  vehicleCardImage: {
+    width: 58,
+    height: 38,
   },
 
   vehicleInfo: {
     flex: 1,
-    marginLeft: 10,
+    marginRight: 10,
   },
 
   vehicleName: {
@@ -205,6 +225,26 @@ export const styles = StyleSheet.create({
   vehiclePlate: {
     color: colors.textSecondary,
     fontSize: 12,
+  },
+
+  vehicleStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+
+  vehicleStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+
+  vehicleStatusText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 
   availableBadge: {
@@ -362,6 +402,11 @@ export const styles = StyleSheet.create({
     ...cardBase,
     width: "48%",
     marginBottom: CARD_SPACING,
+    shadowColor: "#0D1B2A",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   vehicleGridImage: {
@@ -372,9 +417,15 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  vehicleGridImageAsset: {
+    width: "88%",
+    height: 66,
+  },
+
   vehicleGridName: {
     fontWeight: "bold",
     marginTop: 10,
+    color: colors.textPrimary,
   },
 
   vehicleGridPlate: {
@@ -392,6 +443,120 @@ export const styles = StyleSheet.create({
 
   vehicleGridStatusText: {
     fontSize: 12,
+  },
+
+  vehicleModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SCREEN_PADDING,
+    backgroundColor: "rgba(13, 27, 42, 0.62)",
+  },
+
+  vehicleModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  vehicleModalCard: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: colors.surface,
+    borderRadius: CARD_RADIUS,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: CARD_BORDER_COLOR,
+    shadowColor: "#0D1B2A",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+
+  vehicleModalCloseButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 1,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  vehicleModalCloseText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+
+  vehicleModalImageWrapper: {
+    minHeight: 150,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  vehicleModalImage: {
+    width: 220,
+    height: 130,
+  },
+
+  vehicleModalHeader: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  vehicleModalTitle: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+
+  vehicleModalDetails: {
+    borderTopWidth: 1,
+    borderTopColor: CARD_BORDER_COLOR,
+    paddingTop: 8,
+  },
+
+  vehicleModalDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    gap: 12,
+  },
+
+  vehicleModalDetailLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+
+  vehicleModalDetailValue: {
+    color: colors.textPrimary,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+
+  vehicleModalFooterButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+
+  vehicleModalFooterButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
   },
 
   // ───────── TAB BAR ─────────
