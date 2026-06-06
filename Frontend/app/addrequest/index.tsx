@@ -21,6 +21,11 @@ import {
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import { colors } from "../../constants/colors";
+import {
+  getVehicleDisplayName,
+  vehicles,
+  type Vehicle,
+} from "../../constants/data";
 import { SCREEN_PADDING } from "../../styles/globalStyles";
 
 const ACTION_PRIMARY = colors.primary;
@@ -123,6 +128,9 @@ const formatCalendarDate = (value: string) => {
 
   return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
 };
+
+const normalizeSearchValue = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const getTimeParts = (value?: string | null) => {
   if (value && /^\d{2}:\d{2}$/.test(value)) {
@@ -237,10 +245,39 @@ export default function MakeRequest() {
   const [tempMinute, setTempMinute] = useState("00");
   const [destination, setDestination] = useState("");
   const [reason, setReason] = useState("");
-  const [passengers, setPassengers] = useState("1");
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [showVehicleOptions, setShowVehicleOptions] = useState(false);
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
+
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const search = vehicleSearch.trim().toLowerCase();
+    const normalizedSearch = normalizeSearchValue(vehicleSearch);
+
+    if (!search) {
+      return true;
+    }
+
+    const displayName = getVehicleDisplayName(vehicle).toLowerCase();
+    const name = vehicle.name?.toLowerCase() ?? "";
+    const model = vehicle.model?.toLowerCase() ?? "";
+    const plate = vehicle.plate.toLowerCase();
+    const normalizedPlate = normalizeSearchValue(vehicle.plate);
+    const normalizedVehicleText = normalizeSearchValue(
+      `${displayName} ${name} ${model} ${plate}`
+    );
+
+    return (
+      displayName.includes(search) ||
+      name.includes(search) ||
+      model.includes(search) ||
+      plate.includes(search) ||
+      normalizedPlate.includes(normalizedSearch) ||
+      normalizedVehicleText.includes(normalizedSearch)
+    );
+  });
 
   const currentCalendarDate =
     selectedDateString ?? date ?? getCalendarDateString();
@@ -316,6 +353,14 @@ export default function MakeRequest() {
     cancelTimeSelection();
   };
 
+  const selectVehicle = (vehicle: Vehicle) => {
+    const displayName = getVehicleDisplayName(vehicle);
+
+    setSelectedVehicle(vehicle);
+    setVehicleSearch(`${displayName} — ${vehicle.plate}`);
+    setShowVehicleOptions(false);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <PageHeader
@@ -325,7 +370,10 @@ export default function MakeRequest() {
         onBackPress={() => router.back()}
       />
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* DATA */}
         <Text style={styles.label}>Data de uso</Text>
         <TouchableOpacity
@@ -476,6 +524,53 @@ export default function MakeRequest() {
           </View>
         </Modal>
 
+        {/* VEÍCULO */}
+        <Text style={styles.label}>Veículo</Text>
+        <View style={styles.vehicleSelectWrapper}>
+          <TextInput
+            value={vehicleSearch}
+            onChangeText={(value) => {
+              setVehicleSearch(value);
+              setSelectedVehicle(null);
+              setShowVehicleOptions(true);
+            }}
+            onFocus={() => setShowVehicleOptions(true)}
+            placeholder="Digite modelo ou placa"
+            style={styles.input}
+            placeholderTextColor={colors.textMuted}
+          />
+
+          {showVehicleOptions && (
+            <View style={styles.vehicleOptionsCard}>
+              {filteredVehicles.length > 0 ? (
+                filteredVehicles.map((vehicle) => {
+                  const displayName = getVehicleDisplayName(vehicle);
+
+                  return (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      key={vehicle.id}
+                      onPress={() => selectVehicle(vehicle)}
+                      style={styles.vehicleOption}
+                    >
+                      <Text style={styles.vehicleOptionName}>
+                        {displayName}
+                      </Text>
+                      <Text style={styles.vehicleOptionPlate}>
+                        {vehicle.plate}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={styles.vehicleOptionEmpty}>
+                  Nenhum veículo encontrado
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* DESTINO */}
         <Text style={styles.label}>Destino</Text>
         <TextInput
@@ -497,22 +592,6 @@ export default function MakeRequest() {
           placeholderTextColor={colors.textMuted}
         />
 
-        {/* VEÍCULO (mockado por enquanto) */}
-        <Text style={styles.label}>Veículo preferido</Text>
-        <View style={styles.selectBox}>
-          <Text style={styles.selectText}>Fiat Strada — BRA-2E19</Text>
-        </View>
-
-        {/* PASSAGEIROS */}
-        <Text style={styles.label}>Passageiros</Text>
-        <TextInput
-          value={passengers}
-          onChangeText={setPassengers}
-          style={styles.input}
-          keyboardType="numeric"
-          placeholderTextColor={colors.textMuted}
-        />
-
         {/* BOTÕES */}
         <View style={styles.buttons}>
           <TouchableOpacity
@@ -531,7 +610,13 @@ export default function MakeRequest() {
                 end: endTime,
                 destination,
                 reason,
-                passengers,
+                vehicle: selectedVehicle
+                  ? {
+                      id: selectedVehicle.id,
+                      model: getVehicleDisplayName(selectedVehicle),
+                      plate: selectedVehicle.plate,
+                    }
+                  : null,
               });
             }}
           >
@@ -750,20 +835,49 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
 
-  selectBox: {
-    minHeight: 52,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: "center",
+  vehicleSelectWrapper: {
+    position: "relative",
+    zIndex: 2,
   },
 
-  selectText: {
+  vehicleOptionsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 8,
+    overflow: "hidden",
+    shadowColor: "#0D1B2A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+
+  vehicleOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+
+  vehicleOptionName: {
     color: colors.textPrimary,
     fontSize: 15,
+    fontWeight: "700",
+  },
+
+  vehicleOptionPlate: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
+  },
+
+  vehicleOptionEmpty: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
 
   row: {

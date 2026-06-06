@@ -472,25 +472,6 @@ export const styles = StyleSheet.create({
     elevation: 6,
   },
 
-  vehicleModalCloseButton: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 1,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  vehicleModalCloseText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "bold",
-  },
-
   vehicleModalImageWrapper: {
     minHeight: 150,
     borderRadius: 16,
@@ -503,19 +484,6 @@ export const styles = StyleSheet.create({
   vehicleModalImage: {
     width: 220,
     height: 130,
-  },
-
-  vehicleModalHeader: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-
-  vehicleModalTitle: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 8,
-    textAlign: "center",
   },
 
   vehicleModalDetails: {
@@ -545,16 +513,33 @@ export const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  vehicleModalFooterButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
+  vehicleModalRequestButton: {
+    width: "100%",
+    height: 52,
+    backgroundColor: "#F59E0B",
+    borderRadius: 18,
     marginTop: 16,
-    paddingVertical: 12,
     alignItems: "center",
+    justifyContent: "center",
+  },
+
+  vehicleModalRequestButtonText: {
+    color: "#0D1B2A",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  vehicleModalFooterButton: {
+    backgroundColor: "#E5E7EB",
+    borderRadius: 18,
+    height: 52,
+    marginTop: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   vehicleModalFooterButtonText: {
-    color: "#FFFFFF",
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "bold",
   },

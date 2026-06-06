@@ -1,5 +1,6 @@
 import React from "react";
 import { Image, Modal, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
 
 import {
   formatVehicleType,
@@ -45,6 +46,11 @@ export const VehicleDetailsModal = ({
   const status = getVehicleStatusMeta(vehicle.status);
   const imageSource = vehicle.imageUrl ? { uri: vehicle.imageUrl } : vehicleImage;
 
+  const handleRequestVehicle = () => {
+    onClose();
+    router.push("/addrequest");
+  };
+
   return (
     <Modal
       animationType="fade"
@@ -53,48 +59,15 @@ export const VehicleDetailsModal = ({
       visible={visible}
     >
       <View style={styles.vehicleModalOverlay}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={onClose}
-          style={styles.vehicleModalBackdrop}
-        />
+        <View style={styles.vehicleModalBackdrop} />
 
         <View style={styles.vehicleModalCard}>
-          <TouchableOpacity
-            accessibilityLabel="Fechar detalhes do veículo"
-            onPress={onClose}
-            style={styles.vehicleModalCloseButton}
-          >
-            <Text style={styles.vehicleModalCloseText}>X</Text>
-          </TouchableOpacity>
-
           <View style={styles.vehicleModalImageWrapper}>
             <Image
               resizeMode="contain"
               source={imageSource}
               style={styles.vehicleModalImage}
             />
-          </View>
-
-          <View style={styles.vehicleModalHeader}>
-            <Text style={styles.vehicleModalTitle}>{displayName}</Text>
-
-            <View
-              style={[
-                styles.vehicleStatusBadge,
-                { backgroundColor: status.bg },
-              ]}
-            >
-              <View
-                style={[
-                  styles.vehicleStatusDot,
-                  { backgroundColor: status.dot },
-                ]}
-              />
-              <Text style={[styles.vehicleStatusText, { color: status.color }]}>
-                {status.label}
-              </Text>
-            </View>
           </View>
 
           <View style={styles.vehicleModalDetails}>
@@ -111,6 +84,16 @@ export const VehicleDetailsModal = ({
             <DetailRow label="Tipo" value={formatVehicleType(vehicle.type)} />
             <DetailRow label="Status" value={status.label} />
           </View>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleRequestVehicle}
+            style={styles.vehicleModalRequestButton}
+          >
+            <Text style={styles.vehicleModalRequestButtonText}>
+              Solicitar veículo
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.85}
