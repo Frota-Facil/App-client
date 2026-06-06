@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   ScrollView,
   TextInput,
   Image,
@@ -16,8 +15,13 @@ import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar"
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { FilterTabs } from "../../components/layout/FilterTabs";
-import { vehicles } from "../../constants/data";
+import {
+  getVehicleDisplayName,
+  normalizeVehicleStatus,
+  vehicles,
+} from "../../constants/data";
 import { colors } from "../../constants/colors";
+import { VehicleCard } from "../../components/cards/VehicleCard";
 
 type VehicleFilter =
   | "Todos"
@@ -61,32 +65,21 @@ export default function VehiclesScreen() {
   }, [filterParam]);
 
   const filteredVehicles = vehicles.filter((v) => {
+    const normalizedStatus = normalizeVehicleStatus(v.status);
+    const displayName = getVehicleDisplayName(v);
     const matchSearch =
-      v.name.toLowerCase().includes(search.toLowerCase()) ||
+      displayName.toLowerCase().includes(search.toLowerCase()) ||
       v.plate.toLowerCase().includes(search.toLowerCase());
 
     const matchFilter =
       filter === "Todos" ||
-      (filter === "Disponíveis" && v.status === "available") ||
-      (filter === "Em uso" && v.status === "in_use") ||
-      (filter === "Indisponíveis" && v.status === "unavailable") ||
-      (filter === "Manutenção" && v.status === "maintenance");
+      (filter === "Disponíveis" && normalizedStatus === "available") ||
+      (filter === "Em uso" && normalizedStatus === "in_use") ||
+      (filter === "Indisponíveis" && normalizedStatus === "unavailable") ||
+      (filter === "Manutenção" && normalizedStatus === "maintenance");
 
     return matchSearch && matchFilter;
   });
-
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "available":
-        return { bg: "#DCFCE7", text: "#166534", label: "Disponível" };
-      case "in_use":
-        return { bg: "#DBEAFE", text: "#1E3A8A", label: "Em uso" };
-      case "maintenance":
-        return { bg: "#FEF3C7", text: "#92400E", label: "Manutenção" };
-      default:
-        return { bg: "#FEE2E2", text: "#991B1B", label: "Indisponível" };
-    }
-  };
 
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
@@ -139,40 +132,9 @@ export default function VehiclesScreen() {
           ]}
         >
           <View style={styles.vehicleGrid}>
-            {filteredVehicles.map((v) => {
-              const status = getStatusStyle(v.status);
-
-              return (
-                <View key={v.id} style={styles.vehicleGridCard}>
-                  {/* IMAGEM */}
-                  <View style={styles.vehicleGridImage}>
-                    <Text>🚗</Text>
-                  </View>
-
-                  {/* INFO */}
-                  <Text style={styles.vehicleGridName}>{v.name}</Text>
-
-                  <Text style={styles.vehicleGridPlate}>{v.plate}</Text>
-
-                  {/* STATUS */}
-                  <View
-                    style={[
-                      styles.vehicleGridStatus,
-                      { backgroundColor: status.bg },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.vehicleGridStatusText,
-                        { color: status.text },
-                      ]}
-                    >
-                      {status.label}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
+            {filteredVehicles.map((v) => (
+              <VehicleCard key={v.id} {...v} variant="grid" />
+            ))}
           </View>
         </ScrollView>
       </View>

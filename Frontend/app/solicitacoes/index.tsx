@@ -1,6 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,18 +35,6 @@ const filters: RequestFilter[] = [
 export default function SolicitaçõesScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<RequestFilter>("Todas");
-  const [showRequestButton, setShowRequestButton] = useState(true);
-  const requestButtonAnimation = useRef(new Animated.Value(1)).current;
-
-  const animateRequestButton = (visible: boolean) => {
-    setShowRequestButton(visible);
-
-    Animated.timing(requestButtonAnimation, {
-      toValue: visible ? 1 : 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  };
 
   const filteredRequests = requests.filter((request) => {
     return (
@@ -84,10 +71,6 @@ export default function SolicitaçõesScreen() {
         {/* LISTA */}
         <ScrollView
           style={styles.body}
-          onScrollBeginDrag={() => animateRequestButton(false)}
-          onMomentumScrollBegin={() => animateRequestButton(false)}
-          onMomentumScrollEnd={() => animateRequestButton(true)}
-          onScrollEndDrag={() => animateRequestButton(true)}
           contentContainerStyle={[
             styles.bodyContent,
             { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
@@ -99,21 +82,11 @@ export default function SolicitaçõesScreen() {
         </ScrollView>
       </View>
 
-      <Animated.View
-        pointerEvents={showRequestButton ? "auto" : "none"}
+      <View
         style={[
           screenStyles.requestFloatingButtonWrapper,
           {
             bottom: getTabBarHeight(insets.bottom) + 16,
-            opacity: requestButtonAnimation,
-            transform: [
-              {
-                translateY: requestButtonAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [12, 0],
-                }),
-              },
-            ],
           },
         ]}
       >
@@ -126,7 +99,7 @@ export default function SolicitaçõesScreen() {
             + Solicitar veículo
           </Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
 
       <TabBar />
      

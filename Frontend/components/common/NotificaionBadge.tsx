@@ -3,11 +3,12 @@ import { Bell, BellRing } from "lucide-react-native";
 import { styles } from '../../styles/globalStyles';
 
 type NotificationBadgeProps = {
-  count: number
+  count: number;
+  onPress?: () => void;
 }
 
-export const NotificationBadge = ({ count }: NotificationBadgeProps) => (
-  <TouchableOpacity style={styles.bellWrapper}>
+export const NotificationBadge = ({ count, onPress }: NotificationBadgeProps) => (
+  <TouchableOpacity onPress={onPress} style={styles.bellWrapper}>
     {count > 0 ? (
       <BellRing size={22} color="#FFFFFF" />
     ) : (

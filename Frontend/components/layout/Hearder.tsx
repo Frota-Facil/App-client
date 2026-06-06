@@ -1,4 +1,5 @@
 import { View, Text } from 'react-native';
+import { router } from 'expo-router';
 import { Avatar } from '../ui/Avatar';
 import { NotificationBadge } from '../common/NotificaionBadge';
 import { styles } from '../../styles/globalStyles';
@@ -17,7 +18,7 @@ export const Header = () => {
           </View>
         </View>
 
-        <NotificationBadge count={2} />
+        <NotificationBadge count={2} onPress={() => router.push("/avisos")} />
       </View>
 
       <Text style={styles.heroText}>

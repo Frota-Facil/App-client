@@ -16,7 +16,7 @@ import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar"
 import { VehicleCard } from "../../components/cards/VehicleCard";
 import { TripCard } from "../../components/cards/TripCard";
 
-import { vehicles } from "../../constants/data";
+import { normalizeVehicleStatus, vehicles } from "../../constants/data";
 import { trips } from "../../constants/trips";
 import { colors } from "../../constants/colors";
 import { styles } from "../../styles/globalStyles";
@@ -32,7 +32,7 @@ export default function HomeScreen() {
   const nextTripsPreview = nextTrips.slice(0, 2);
 
   const availableVehicles = vehicles.filter(
-    (vehicle) => vehicle.status === "available"
+    (vehicle) => normalizeVehicleStatus(vehicle.status) === "available"
   );
 
   const openTripDetails = (id: number) => {

@@ -1,81 +1,107 @@
-import { View, Text, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { Image, Text, TouchableOpacity, View } from "react-native";
+
+import {
+  getVehicleDisplayName,
+  getVehicleStatusMeta,
+  Vehicle,
+} from "../../constants/data";
+import { VehicleDetailsModal } from "../modals/VehicleDetailsModal";
 import { styles } from "../../styles/globalStyles";
 
-interface VehicleCardProps {
-  name: string;
-  plate: string;
-  status: string; // novo padrão
-}
+type VehicleCardProps = Vehicle & {
+  variant?: "list" | "grid";
+};
 
-export const VehicleCard = ({
-  name,
-  plate,
-  status,
-}: VehicleCardProps) => {
-  const getStatus = () => {
-    switch (status) {
-      case "available":
-        return {
-          label: "Disponível",
-          bg: "#DCFCE7",
-          color: "#16A34A",
-        };
-      case "in_use":
-        return {
-          label: "Em uso",
-          bg: "#DBEAFE",
-          color: "#2563EB",
-        };
-      case "maintenance":
-        return {
-          label: "Manutenção",
-          bg: "#FEF3C7",
-          color: "#CA8A04",
-        };
-      default:
-        return {
-          label: "Indisponível",
-          bg: "#FEE2E2",
-          color: "#DC2626",
-        };
-    }
-  };
+const vehicleImage = require("../../assets/images/hatchbackmaior.png");
 
-  const s = getStatus();
+export const VehicleCard = ({ variant = "list", ...vehicle }: VehicleCardProps) => {
+  const [isDetailsVisible, setIsDetailsVisible] = useState(false);
+  const status = getVehicleStatusMeta(vehicle.status);
+  const displayName = getVehicleDisplayName(vehicle);
+  const imageSource = vehicle.imageUrl ? { uri: vehicle.imageUrl } : vehicleImage;
+
+  const renderBadge = (isGrid = false) => (
+    <View
+      style={[
+        styles.vehicleStatusBadge,
+        isGrid && styles.vehicleGridStatus,
+        { backgroundColor: status.bg },
+      ]}
+    >
+      <View
+        style={[styles.vehicleStatusDot, { backgroundColor: status.dot }]}
+      />
+      <Text style={[styles.vehicleStatusText, { color: status.color }]}>
+        {status.label}
+      </Text>
+    </View>
+  );
+
+  if (variant === "grid") {
+    return (
+      <>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setIsDetailsVisible(true)}
+          style={styles.vehicleGridCard}
+        >
+          <View style={styles.vehicleGridImage}>
+            <Image
+              resizeMode="contain"
+              source={imageSource}
+              style={styles.vehicleGridImageAsset}
+            />
+          </View>
+
+          <Text numberOfLines={1} style={styles.vehicleGridName}>
+            {displayName}
+          </Text>
+
+          <Text style={styles.vehicleGridPlate}>{vehicle.plate}</Text>
+
+          {renderBadge(true)}
+        </TouchableOpacity>
+
+        <VehicleDetailsModal
+          onClose={() => setIsDetailsVisible(false)}
+          vehicle={vehicle}
+          visible={isDetailsVisible}
+        />
+      </>
+    );
+  }
 
   return (
-    <TouchableOpacity style={styles.vehicleCard}>
-      <Text style={{ fontSize: 28 }}>🚗</Text>
-
-      <View style={styles.vehicleInfo}>
-        <Text style={styles.vehicleName}>{name}</Text>
-        <Text style={styles.vehiclePlate}>{plate}</Text>
-      </View>
-
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: s.bg,
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 10,
-        }}
+    <>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setIsDetailsVisible(true)}
+        style={styles.vehicleCard}
       >
-        <View
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: 3,
-            backgroundColor: s.color,
-            marginRight: 5,
-          }}
-        />
+        <View style={styles.vehicleCardImageWrapper}>
+          <Image
+            resizeMode="contain"
+            source={imageSource}
+            style={styles.vehicleCardImage}
+          />
+        </View>
 
-        <Text style={{ color: s.color, fontSize: 12 }}>
-          {s.label}
-        </Text>
-      </View>
-    </TouchableOpacity>
+        <View style={styles.vehicleInfo}>
+          <Text numberOfLines={1} style={styles.vehicleName}>
+            {displayName}
+          </Text>
+          <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>
+        </View>
+
+        {renderBadge()}
+      </TouchableOpacity>
+
+      <VehicleDetailsModal
+        onClose={() => setIsDetailsVisible(false)}
+        vehicle={vehicle}
+        visible={isDetailsVisible}
+      />
+    </>
   );
 };
