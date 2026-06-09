@@ -12,7 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { useIsFocused } from "@react-navigation/native";
 
 import { Header } from "../../components/layout/Hearder";
-import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
+import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { VehicleCard } from "../../components/cards/VehicleCard";
 import { TripCard } from "../../components/cards/TripCard";
 
@@ -116,7 +116,6 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
 
-      <TabBar />
     </SafeAreaView>
   );
 }

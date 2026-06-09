@@ -26,7 +26,7 @@ import {
   vehicles,
   type Vehicle,
 } from "../../constants/data";
-import { SCREEN_PADDING } from "../../styles/globalStyles";
+import { baseCard, SCREEN_PADDING } from "../../styles/globalStyles";
 
 const ACTION_PRIMARY = colors.primary;
 const CALENDAR_TEXT_PRIMARY = "#111827";
@@ -34,18 +34,27 @@ const CALENDAR_TEXT_SECONDARY = "#6B7280";
 const CALENDAR_BORDER = "#E5E7EB";
 const TIME_OPTION_HEIGHT = 44;
 const TIME_LIST_HEIGHT = TIME_OPTION_HEIGHT * 5;
+const TIME_PICKER_REPEAT_COUNT = 21;
+const TIME_PICKER_MIDDLE_REPEAT_INDEX = Math.floor(
+  TIME_PICKER_REPEAT_COUNT / 2
+);
 const HOURS = Array.from({ length: 24 }, (_, index) =>
   String(index).padStart(2, "0")
 );
 const MINUTES = Array.from({ length: 60 }, (_, index) =>
   String(index).padStart(2, "0")
 );
+const buildInfiniteTimeOptions = (options: string[]) =>
+  Array.from({ length: TIME_PICKER_REPEAT_COUNT }, () => options).flat();
+const INFINITE_HOURS = buildInfiniteTimeOptions(HOURS);
+const INFINITE_MINUTES = buildInfiniteTimeOptions(MINUTES);
 
 type TimeTarget = "start" | "end";
 
 type TimeOptionColumnProps = {
   title: string;
-  data: string[];
+  options: string[];
+  infiniteOptions: string[];
   selectedValue: string;
   onSelect: (value: string) => void;
   listRef: React.RefObject<FlatList<string> | null>;
@@ -142,13 +151,25 @@ const getTimeParts = (value?: string | null) => {
   return { hour: "08", minute: "00" };
 };
 
+const getTimeOptionIndex = (options: string[], value: string) => {
+  const optionIndex = options.indexOf(value);
+
+  return (
+    TIME_PICKER_MIDDLE_REPEAT_INDEX * options.length +
+    Math.max(optionIndex, 0)
+  );
+};
+
+const getRealTimeOption = (options: string[], index: number) =>
+  options[((index % options.length) + options.length) % options.length];
+
 const scrollTimeList = (
   listRef: React.RefObject<FlatList<string> | null>,
-  data: string[],
+  options: string[],
   value: string,
   animated = true
 ) => {
-  const index = Math.max(data.indexOf(value), 0);
+  const index = getTimeOptionIndex(options, value);
 
   listRef.current?.scrollToOffset({
     offset: index * TIME_OPTION_HEIGHT,
@@ -158,14 +179,15 @@ const scrollTimeList = (
 
 function TimeOptionColumn({
   title,
-  data,
+  options,
+  infiniteOptions,
   selectedValue,
   onSelect,
   listRef,
 }: TimeOptionColumnProps) {
   const selectOption = (value: string) => {
     onSelect(value);
-    scrollTimeList(listRef, data, value);
+    scrollTimeList(listRef, options, value);
   };
 
   const handleScrollEnd = (
@@ -174,13 +196,22 @@ function TimeOptionColumn({
     const nextIndex = Math.max(
       0,
       Math.min(
-        data.length - 1,
+        infiniteOptions.length - 1,
         Math.round(event.nativeEvent.contentOffset.y / TIME_OPTION_HEIGHT)
       )
     );
+    const realValue = getRealTimeOption(options, nextIndex);
+    const shouldRecenter =
+      nextIndex < options.length * 2 ||
+      nextIndex > infiniteOptions.length - options.length * 2;
 
-    onSelect(data[nextIndex]);
+    onSelect(realValue);
+
+    if (shouldRecenter) {
+      scrollTimeList(listRef, options, realValue, false);
+    }
   };
+  const initialScrollIndex = getTimeOptionIndex(options, selectedValue);
 
   return (
     <View style={styles.timePickerColumn}>
@@ -189,17 +220,25 @@ function TimeOptionColumn({
         <View style={styles.timePickerSelection} />
         <FlatList
           ref={listRef}
-          data={data}
-          keyExtractor={(item) => item}
+          data={infiniteOptions}
+          keyExtractor={(item, index) => `${item}-${index}`}
           showsVerticalScrollIndicator={false}
+          initialScrollIndex={initialScrollIndex}
           snapToInterval={TIME_OPTION_HEIGHT}
           decelerationRate="fast"
           contentContainerStyle={styles.timePickerListContent}
+          extraData={selectedValue}
           getItemLayout={(_, index) => ({
             length: TIME_OPTION_HEIGHT,
             offset: TIME_OPTION_HEIGHT * index,
             index,
           })}
+          onScrollToIndexFailed={({ index }) => {
+            listRef.current?.scrollToOffset({
+              offset: index * TIME_OPTION_HEIGHT,
+              animated: false,
+            });
+          }}
           onMomentumScrollEnd={handleScrollEnd}
           onScrollEndDrag={handleScrollEnd}
           renderItem={({ item }) => {
@@ -486,7 +525,8 @@ export default function MakeRequest() {
               <View style={styles.timePickerRow}>
                 <TimeOptionColumn
                   title="Horas"
-                  data={HOURS}
+                  options={HOURS}
+                  infiniteOptions={INFINITE_HOURS}
                   selectedValue={tempHour}
                   onSelect={setTempHour}
                   listRef={hourListRef}
@@ -496,7 +536,8 @@ export default function MakeRequest() {
 
                 <TimeOptionColumn
                   title="Minutos"
-                  data={MINUTES}
+                  options={MINUTES}
+                  infiniteOptions={INFINITE_MINUTES}
                   selectedValue={tempMinute}
                   onSelect={setTempMinute}
                   listRef={minuteListRef}
@@ -841,17 +882,10 @@ const styles = StyleSheet.create({
   },
 
   vehicleOptionsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...baseCard,
     marginTop: 8,
+    padding: 0,
     overflow: "hidden",
-    shadowColor: "#0D1B2A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
   },
 
   vehicleOption: {
