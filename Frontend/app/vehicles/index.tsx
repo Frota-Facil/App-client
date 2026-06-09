@@ -11,7 +11,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { styles } from "../../styles/globalStyles";
-import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
+import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { FilterTabs } from "../../components/layout/FilterTabs";
@@ -138,8 +138,6 @@ export default function VehiclesScreen() {
           </View>
         </ScrollView>
       </View>
-
-      <TabBar />
 
     </SafeAreaView>
   );

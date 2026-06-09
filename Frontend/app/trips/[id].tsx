@@ -14,13 +14,13 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import {
   getTabBarContentPadding,
   getTabBarHeight,
-  TabBar,
 } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
 import { TripStatus, trips } from "../../constants/trips";
 import {
+  baseCard,
   CARD_BORDER_COLOR,
-  CARD_RADIUS,
+  CARD_SPACING,
   SCREEN_PADDING,
   styles,
 } from "../../styles/globalStyles";
@@ -100,7 +100,6 @@ export default function TripDetailsScreen() {
           <Text style={localStyles.emptyStateText}>Viagem não encontrada.</Text>
         </View>
 
-        <TabBar />
       </SafeAreaView>
     );
   }
@@ -205,24 +204,14 @@ export default function TripDetailsScreen() {
         </TouchableOpacity>
       </View>
 
-      <TabBar />
     </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: CARD_RADIUS,
-    borderWidth: 1,
-    borderColor: CARD_BORDER_COLOR,
-    padding: 20,
-  
-    marginBottom: 16,
-    shadowColor: "#000000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    ...baseCard,
+    marginBottom: CARD_SPACING,
   },
 
 
@@ -333,9 +322,8 @@ const localStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: TRIP_ACTION_FOOTER_HEIGHT,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: CARD_BORDER_COLOR,
+    backgroundColor: colors.background,
+    borderTopWidth: 0,
     paddingHorizontal: SCREEN_PADDING,
     paddingTop: 14,
   },

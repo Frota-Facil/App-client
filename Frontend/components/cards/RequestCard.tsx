@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, TouchableOpacity } from "react-native";
 import { styles } from "../../styles/globalStyles";
 
 type Props = {
@@ -8,6 +8,7 @@ type Props = {
   date: string;
   location: string;
   status: "Aprovada" | "Pendente" | "Concluída" | "Recusada";
+  onPress?: () => void;
 };
 
 export const RequestCard: React.FC<Props> = ({
@@ -16,6 +17,7 @@ export const RequestCard: React.FC<Props> = ({
   date,
   location,
   status,
+  onPress,
 }) => {
   const getStatusStyle = () => {
     switch (status) {
@@ -33,7 +35,12 @@ export const RequestCard: React.FC<Props> = ({
   const statusStyle = getStatusStyle();
 
   return (
-    <View style={styles.vehicleCard}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      disabled={!onPress}
+      onPress={onPress}
+      style={styles.requestCard}
+    >
       <View style={{ flex: 1 }}>
         <Text style={styles.vehicleName}>{name}</Text>
         <Text style={styles.vehiclePlate}>{plate}</Text>
@@ -83,6 +90,6 @@ export const RequestCard: React.FC<Props> = ({
           {status}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,11 +10,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
-import { styles } from "../../styles/globalStyles";
+import { baseCard, styles } from "../../styles/globalStyles";
 import {
   getTabBarContentPadding,
   getTabBarHeight,
-  TabBar,
 } from "../../components/layout/TabBar";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
@@ -32,9 +32,43 @@ const filters: RequestFilter[] = [
   "Recusadas",
 ];
 
+type RequestDetailRowProps = {
+  label: string;
+  value: string;
+};
+
+type RequestDetail = {
+  label: string;
+  value?: string;
+};
+
+const formatRequestDate = (value: string) => {
+  const [datePart] = value.split("T");
+  const [year, month, day] = datePart.split("-");
+
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+};
+
+const RequestDetailRow = ({ label, value }: RequestDetailRowProps) => (
+  <View style={screenStyles.modalDetailRow}>
+    <Text style={screenStyles.modalDetailLabel}>{label}</Text>
+    <Text style={screenStyles.modalDetailValue}>{value}</Text>
+  </View>
+);
+
+const getRequestPurpose = (request: (typeof requests)[number]) =>
+  request.reason ?? request.finalidade ?? request.purpose ?? request.motivo;
+
 export default function SolicitaçõesScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<RequestFilter>("Todas");
+  const [selectedRequest, setSelectedRequest] = useState<
+    (typeof requests)[number] | null
+  >(null);
 
   const filteredRequests = requests.filter((request) => {
     return (
@@ -44,6 +78,26 @@ export default function SolicitaçõesScreen() {
       (filter === "Recusadas" && request.status === "Recusada")
     );
   });
+  const selectedRequestDetails = selectedRequest
+    ? ([
+        { label: "Status", value: selectedRequest.status },
+        { label: "Veículo", value: selectedRequest.name },
+        { label: "Placa", value: selectedRequest.plate },
+        { label: "Data", value: formatRequestDate(selectedRequest.date) },
+        { label: "Início", value: selectedRequest.startTime },
+        { label: "Término previsto", value: selectedRequest.endTime },
+        { label: "Destino/local", value: selectedRequest.location },
+        { label: "Finalidade", value: getRequestPurpose(selectedRequest) },
+        {
+          label: "Data de criação",
+          value: selectedRequest.createdAt
+            ? formatRequestDate(selectedRequest.createdAt)
+            : undefined,
+        },
+      ] satisfies RequestDetail[]).filter(
+        (detail): detail is RequestDetailRowProps => Boolean(detail.value)
+      )
+    : [];
 
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
@@ -77,7 +131,11 @@ export default function SolicitaçõesScreen() {
           ]}
         >
           {filteredRequests.map((item) => (
-            <RequestCard key={item.id} {...item} />
+            <RequestCard
+              key={item.id}
+              {...item}
+              onPress={() => setSelectedRequest(item)}
+            />
           ))}
         </ScrollView>
       </View>
@@ -101,8 +159,36 @@ export default function SolicitaçõesScreen() {
         </TouchableOpacity>
       </View>
 
-      <TabBar />
-     
+      <Modal
+        visible={Boolean(selectedRequest)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedRequest(null)}
+      >
+        <View style={screenStyles.modalOverlay}>
+          <View style={screenStyles.modalCard}>
+            <Text style={screenStyles.modalTitle}>Detalhes da solicitação</Text>
+
+            <View style={screenStyles.modalRows}>
+              {selectedRequestDetails.map((detail) => (
+                <RequestDetailRow
+                  key={detail.label}
+                  label={detail.label}
+                  value={detail.value}
+                />
+              ))}
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setSelectedRequest(null)}
+              style={screenStyles.modalCloseButton}
+            >
+              <Text style={screenStyles.modalCloseButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -141,6 +227,73 @@ const screenStyles = StyleSheet.create({
   requestFloatingButtonText: {
     color: "#111827",
     fontSize: 16,
+    fontWeight: "700",
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(17, 24, 39, 0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 22,
+  },
+
+  modalCard: {
+    ...baseCard,
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 20,
+    padding: 20,
+  },
+
+  modalTitle: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+
+  modalRows: {
+    marginTop: 2,
+  },
+
+  modalDetailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  modalDetailLabel: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  modalDetailValue: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+
+  modalCloseButton: {
+    width: "100%",
+    height: 52,
+    borderRadius: 20,
+    backgroundColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+  },
+
+  modalCloseButtonText: {
+    color: "#111827",
+    fontSize: 15,
     fontWeight: "700",
   },
 });
