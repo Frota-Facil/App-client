@@ -15,7 +15,6 @@ import { styles } from "../../styles/globalStyles";
 import {
   getTabBarContentPadding,
   getTabBarHeight,
-  TabBar,
 } from "../../components/layout/TabBar";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
@@ -113,7 +112,6 @@ export default function AvisosScreen() {
         </TouchableOpacity>
       </View>
 
-      <TabBar />
     </SafeAreaView>
   );
 }

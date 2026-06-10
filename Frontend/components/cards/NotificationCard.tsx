@@ -44,7 +44,6 @@ export const NotificationCard: React.FC<Props> = ({
         styles.notificationCard,
         read && {
           opacity: 0.62,
-          backgroundColor: "#F9FAFB",
         },
       ]}
     >

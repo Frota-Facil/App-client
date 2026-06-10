@@ -5,7 +5,7 @@ import { router } from "expo-router";
 
 import { TripCard } from "../../components/cards/TripCard";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
+import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { trips } from "../../constants/trips";
 import { styles } from "../../styles/globalStyles";
 
@@ -46,7 +46,6 @@ export default function TripsScreen() {
         ))}
       </ScrollView>
 
-      <TabBar />
     </SafeAreaView>
   );
 }

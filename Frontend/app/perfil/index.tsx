@@ -14,9 +14,14 @@ import { LogOut, Pencil } from "lucide-react-native";
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
-import { getTabBarContentPadding, TabBar } from "../../components/layout/TabBar";
+import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
-import { SCREEN_PADDING, styles as globalStyles } from "../../styles/globalStyles";
+import {
+  baseCard,
+  CARD_SPACING,
+  SCREEN_PADDING,
+  styles as globalStyles,
+} from "../../styles/globalStyles";
 
 const PROFILE_PRIMARY = colors.primary;
 
@@ -231,7 +236,6 @@ export default function PerfilScreen() {
         </View>
       </ScrollView>
 
-      <TabBar />
     </SafeAreaView>
   );
 }
@@ -290,7 +294,7 @@ const styles = StyleSheet.create({
   },
 
   fieldGroup: {
-    marginBottom: 16,
+    marginBottom: CARD_SPACING,
   },
 
   fieldLabel: {
@@ -301,11 +305,8 @@ const styles = StyleSheet.create({
   },
 
   fieldBox: {
+    ...baseCard,
     minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: "row",

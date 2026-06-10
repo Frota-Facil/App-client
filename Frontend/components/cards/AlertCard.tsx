@@ -8,8 +8,8 @@ interface AlertCardProps {
   tint: string;
 }
 
-export const AlertCard = ({ icon, title, subtitle, tint }: AlertCardProps) => (
-  <TouchableOpacity style={[styles.alertCard, { backgroundColor: tint }]}>
+export const AlertCard = ({ icon, title, subtitle }: AlertCardProps) => (
+  <TouchableOpacity style={styles.alertCard}>
     <View style={styles.alertIcon}>{icon}</View>
 
     <View style={styles.alertText}>

@@ -2,10 +2,10 @@ import { StyleSheet, ViewStyle } from 'react-native';
 import { colors } from '../constants/colors';
 
 export const SCREEN_PADDING = 20;
-export const CARD_RADIUS = 20;
+export const CARD_RADIUS = 16;
 export const CARD_PADDING = 16;
 export const CARD_SPACING = 12;
-export const CARD_BORDER_COLOR = "#E5E7EB";
+export const CARD_BORDER_COLOR = colors.border;
 
 const pageContainer: ViewStyle = {
   flex: 1,
@@ -16,12 +16,17 @@ const screenContent: ViewStyle = {
   paddingHorizontal: SCREEN_PADDING,
 };
 
-const cardBase: ViewStyle = {
+export const baseCard: ViewStyle = {
   backgroundColor: colors.surface,
   borderRadius: CARD_RADIUS,
   padding: CARD_PADDING,
   borderWidth: 1,
   borderColor: CARD_BORDER_COLOR,
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0,
+  shadowRadius: 0,
+  elevation: 0,
 };
 
 export const styles = StyleSheet.create({
@@ -41,7 +46,9 @@ export const styles = StyleSheet.create({
     paddingTop: 16,
   },
 
-  cardBase,
+  baseCard,
+
+  cardBase: baseCard,
 
   cardSpacing: {
     marginBottom: CARD_SPACING,
@@ -141,7 +148,7 @@ export const styles = StyleSheet.create({
 
   // ───────── ALERT CARD ─────────
   alertCard: {
-    ...cardBase,
+    ...baseCard,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: CARD_SPACING,
@@ -186,15 +193,10 @@ export const styles = StyleSheet.create({
 
   // ───────── VEHICLE CARD ─────────
   vehicleCard: {
-    ...cardBase,
+    ...baseCard,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: CARD_SPACING,
-    shadowColor: "#0D1B2A",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
   },
 
   vehicleCardImageWrapper: {
@@ -247,6 +249,13 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  requestCard: {
+    ...baseCard,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: CARD_SPACING,
+  },
+
   availableBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -290,7 +299,7 @@ export const styles = StyleSheet.create({
   },
 
   tripCard: {
-    ...cardBase,
+    ...baseCard,
     marginBottom: CARD_SPACING,
   },
 
@@ -399,14 +408,9 @@ export const styles = StyleSheet.create({
   },
 
   vehicleGridCard: {
-    ...cardBase,
+    ...baseCard,
     width: "48%",
     marginBottom: CARD_SPACING,
-    shadowColor: "#0D1B2A",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
   },
 
   vehicleGridImage: {
@@ -461,7 +465,7 @@ export const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 380,
     backgroundColor: colors.surface,
-    borderRadius: CARD_RADIUS,
+    borderRadius: 20,
     padding: 18,
     borderWidth: 1,
     borderColor: CARD_BORDER_COLOR,
@@ -661,7 +665,7 @@ export const styles = StyleSheet.create({
   },
 
   notificationCard: {
-    ...cardBase,
+    ...baseCard,
     marginBottom: CARD_SPACING,
     flexDirection: "row",
     alignItems: "flex-start",
