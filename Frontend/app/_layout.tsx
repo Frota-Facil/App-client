@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { MD3LightTheme, PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { TabBar } from "../components/layout/TabBar";
 import { colors } from "../constants/colors";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 
@@ -18,15 +19,53 @@ const paperTheme = {
   },
 };
 
-const AuthGate = () => {
+const tabBarPaths = new Set([
+  "/home",
+  "/vehicles",
+  "/solicitacoes",
+  "/avisos",
+  "/perfil",
+  "/trips",
+]);
+
+const shouldShowTabBar = (pathname: string) =>
+  tabBarPaths.has(pathname) || pathname.startsWith("/trips/");
+
+function AppShell({ isAuthenticated }: { isAuthenticated: boolean }) {
+  const pathname = usePathname();
+
+  return (
+    <View style={styles.appShell}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="home" />
+        <Stack.Screen name="vehicles" />
+        <Stack.Screen name="solicitacoes" />
+        <Stack.Screen name="avisos" />
+        <Stack.Screen name="perfil" />
+        <Stack.Screen name="addrequest" />
+        <Stack.Screen name="trips" />
+        <Stack.Screen name="trips/[id]" />
+      </Stack>
+
+      {isAuthenticated && shouldShowTabBar(pathname) && <TabBar />}
+    </View>
+  );
+}
+
+function AuthGate() {
   const router = useRouter();
   const pathname = usePathname();
   const { isLoading, token } = useAuth();
 
   const isAuthenticated = Boolean(token);
   const isLoginRoute = pathname === "/";
-  const shouldRedirectToLogin = !isLoading && !isAuthenticated && !isLoginRoute;
-  const shouldRedirectToHome = !isLoading && isAuthenticated && isLoginRoute;
+
+  const shouldRedirectToLogin =
+    !isLoading && !isAuthenticated && !isLoginRoute;
+
+  const shouldRedirectToHome =
+    !isLoading && isAuthenticated && isLoginRoute;
 
   useEffect(() => {
     if (shouldRedirectToLogin) {
@@ -41,7 +80,7 @@ const AuthGate = () => {
 
   if (isLoading) {
     return (
-      <View style={layoutStyles.loading}>
+      <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
@@ -49,31 +88,16 @@ const AuthGate = () => {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={!isAuthenticated}>
-          <Stack.Screen name="index" />
-        </Stack.Protected>
-
-        <Stack.Protected guard={isAuthenticated}>
-          <Stack.Screen name="home" />
-          <Stack.Screen name="vehicles" />
-          <Stack.Screen name="solicitacoes" />
-          <Stack.Screen name="avisos" />
-          <Stack.Screen name="perfil" />
-          <Stack.Screen name="addrequest" />
-          <Stack.Screen name="trips" />
-          <Stack.Screen name="trips/[id]" />
-        </Stack.Protected>
-      </Stack>
+      <AppShell isAuthenticated={isAuthenticated} />
 
       {(shouldRedirectToLogin || shouldRedirectToHome) && (
-        <View style={[layoutStyles.loading, layoutStyles.overlay]}>
+        <View style={[styles.loading, styles.overlay]}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       )}
     </>
   );
-};
+}
 
 export default function RootLayout() {
   return (
@@ -87,13 +111,18 @@ export default function RootLayout() {
   );
 }
 
-const layoutStyles = StyleSheet.create({
+const styles = StyleSheet.create({
+  appShell: {
+    flex: 1,
+  },
+
   loading: {
     alignItems: "center",
     backgroundColor: colors.background,
     flex: 1,
     justifyContent: "center",
   },
+
   overlay: {
     ...StyleSheet.absoluteFillObject,
   },
