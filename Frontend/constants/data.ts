@@ -5,7 +5,7 @@ export type NormalizedVehicleStatus =
   | "unavailable";
 
 export type Vehicle = {
-  id: number;
+  id: string | number;
   name?: string;
   model?: string;
   plate: string;
@@ -81,6 +81,8 @@ export const formatVehicleType = (type?: string | null) => {
       return "Caminhão";
     case "MOTORCYCLE":
       return "Moto";
+    case "TRACTOR":
+      return "Trator";
     default:
       return type ?? "Não informado";
   }

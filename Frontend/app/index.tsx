@@ -4,22 +4,50 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import { Eye, EyeClosed } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
+import { useAuth } from "../contexts/AuthContext";
+import { AuthRequestError } from "../services/auth";
+
 export default function LoginScreen() {
   const router = useRouter();
+  const { signIn } = useAuth();
 
-  const [email, setEmail] = useState("carlos.mendes@municipio.gov.br");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = () => {
-    // depois conectar com backend
-    router.replace("/home");
+  const handleLogin = async () => {
+    const trimmedEmail = email.trim();
+
+    setErrorMessage("");
+
+    if (!trimmedEmail || !password) {
+      setErrorMessage("Preencha email e senha");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await signIn(trimmedEmail, password);
+      router.replace("/home");
+    } catch (error) {
+      if (error instanceof AuthRequestError && error.status === 401) {
+        setErrorMessage("Credenciais inválidas");
+        return;
+      }
+
+      setErrorMessage("Não foi possível conectar ao servidor");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -63,6 +91,10 @@ export default function LoginScreen() {
         <TextInput
           value={email}
           onChangeText={setEmail}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          placeholder="nome@municipio.gov.br"
           style={{
             backgroundColor: "#F9FAFB",
             borderRadius: 12,
@@ -83,6 +115,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
+            placeholder="Digite sua senha"
             style={{
               backgroundColor: "#F9FAFB",
               borderRadius: 12,
@@ -112,19 +145,36 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
+        {errorMessage ? (
+          <Text
+            style={{
+              color: "#B91C1C",
+              marginBottom: 14,
+              textAlign: "center",
+            }}
+          >
+            {errorMessage}
+          </Text>
+        ) : null}
+
         {/* BOTÃO */}
         <TouchableOpacity
           onPress={handleLogin}
+          disabled={isSubmitting}
           style={{
-            backgroundColor: "#1B3A5C",
+            backgroundColor: isSubmitting ? "#6B7280" : "#1B3A5C",
             padding: 16,
             borderRadius: 14,
             alignItems: "center",
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "bold" }}>
-            Entrar
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={{ color: "#fff", fontWeight: "bold" }}>
+              Entrar
+            </Text>
+          )}
         </TouchableOpacity>
         
       </View>

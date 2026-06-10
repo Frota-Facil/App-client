@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   View,
   ScrollView,
+  Text,
   TextInput,
   Image,
   StyleSheet,
@@ -18,24 +20,24 @@ import { FilterTabs } from "../../components/layout/FilterTabs";
 import {
   getVehicleDisplayName,
   normalizeVehicleStatus,
-  vehicles,
+  type Vehicle,
 } from "../../constants/data";
 import { colors } from "../../constants/colors";
 import { VehicleCard } from "../../components/cards/VehicleCard";
+import { useAuth } from "../../contexts/AuthContext";
+import { getVehicles, VehicleRequestError } from "../../services/vehicles";
 
 type VehicleFilter =
   | "Todos"
   | "Disponíveis"
   | "Em uso"
-  | "Indisponíveis"
-  | "Manutenção";
+  | "Indisponíveis ou Manutenção";
 
 const filters: VehicleFilter[] = [
   "Todos",
   "Disponíveis",
   "Em uso",
-  "Indisponíveis",
-  "Manutenção",
+  "Indisponíveis ou Manutenção",
 ];
 
 const getFilterFromParam = (
@@ -47,11 +49,20 @@ const getFilterFromParam = (
     return "Disponíveis";
   }
 
+  if (value === "in_use") {
+    return "Em uso";
+  }
+
+  if (value === "maintenance" || value === "unavailable") {
+    return "Indisponíveis ou Manutenção";
+  }
+
   return "Todos";
 };
 
 export default function VehiclesScreen() {
   const insets = useSafeAreaInsets();
+  const { signOut, token } = useAuth();
   const { filter: filterParam } = useLocalSearchParams<{
     filter?: string | string[];
   }>();
@@ -59,27 +70,128 @@ export default function VehiclesScreen() {
     getFilterFromParam(filterParam)
   );
   const [search, setSearch] = useState("");
+  const [fleetVehicles, setFleetVehicles] = useState<Vehicle[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     setFilter(getFilterFromParam(filterParam));
   }, [filterParam]);
 
-  const filteredVehicles = vehicles.filter((v) => {
-    const normalizedStatus = normalizeVehicleStatus(v.status);
-    const displayName = getVehicleDisplayName(v);
-    const matchSearch =
-      displayName.toLowerCase().includes(search.toLowerCase()) ||
-      v.plate.toLowerCase().includes(search.toLowerCase());
+  useEffect(() => {
+    let isCurrent = true;
 
-    const matchFilter =
-      filter === "Todos" ||
-      (filter === "Disponíveis" && normalizedStatus === "available") ||
-      (filter === "Em uso" && normalizedStatus === "in_use") ||
-      (filter === "Indisponíveis" && normalizedStatus === "unavailable") ||
-      (filter === "Manutenção" && normalizedStatus === "maintenance");
+    const loadVehicles = async () => {
+      if (!token) {
+        setFleetVehicles([]);
+        setIsLoadingVehicles(false);
+        return;
+      }
 
-    return matchSearch && matchFilter;
-  });
+      setIsLoadingVehicles(true);
+      setErrorMessage("");
+
+      try {
+        const nextVehicles = await getVehicles(token);
+
+        if (isCurrent) {
+          setFleetVehicles(nextVehicles);
+        }
+      } catch (error) {
+        if (error instanceof VehicleRequestError && error.status === 401) {
+          await signOut();
+          return;
+        }
+
+        if (!isCurrent) {
+          return;
+        }
+
+        if (error instanceof VehicleRequestError) {
+          if (error.status === 403 || error.isConnectionError) {
+            setErrorMessage(error.message);
+            return;
+          }
+        }
+
+        setErrorMessage("Não foi possível carregar os veículos.");
+      } finally {
+        if (isCurrent) {
+          setIsLoadingVehicles(false);
+        }
+      }
+    };
+
+    loadVehicles();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [signOut, token]);
+
+  const filteredVehicles = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return fleetVehicles.filter((vehicle) => {
+      const normalizedStatus = normalizeVehicleStatus(vehicle.status);
+      const displayName = getVehicleDisplayName(vehicle);
+      const matchSearch =
+        !normalizedSearch ||
+        displayName.toLowerCase().includes(normalizedSearch) ||
+        vehicle.plate.toLowerCase().includes(normalizedSearch);
+
+      const matchFilter =
+        filter === "Todos" ||
+        (filter === "Disponíveis" && normalizedStatus === "available") ||
+        (filter === "Em uso" && normalizedStatus === "in_use") ||
+        (filter === "Indisponíveis ou Manutenção" &&
+          normalizedStatus === "maintenance");
+
+      return matchSearch && matchFilter;
+    });
+  }, [filter, fleetVehicles, search]);
+
+  const isShowingListState =
+    isLoadingVehicles || Boolean(errorMessage) || filteredVehicles.length === 0;
+  const emptyMessage =
+    fleetVehicles.length === 0
+      ? "Nenhum veículo cadastrado."
+      : "Nenhum veículo encontrado para os filtros selecionados.";
+
+  const renderVehicleContent = () => {
+    if (isLoadingVehicles) {
+      return (
+        <View style={screenStyles.listState}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={screenStyles.listStateText}>Carregando veículos...</Text>
+        </View>
+      );
+    }
+
+    if (errorMessage) {
+      return (
+        <View style={screenStyles.listState}>
+          <Text style={screenStyles.listStateText}>{errorMessage}</Text>
+        </View>
+      );
+    }
+
+    if (filteredVehicles.length === 0) {
+      return (
+        <View style={screenStyles.listState}>
+          <Text style={screenStyles.listStateText}>{emptyMessage}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.vehicleGrid}>
+        {filteredVehicles.map((vehicle) => (
+          <VehicleCard key={String(vehicle.id)} {...vehicle} variant="grid" />
+        ))}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
@@ -128,14 +240,11 @@ export default function VehiclesScreen() {
           style={styles.vehicleList}
           contentContainerStyle={[
             styles.screenContent,
+            isShowingListState && screenStyles.stateListContent,
             { paddingBottom: getTabBarContentPadding(insets.bottom) },
           ]}
         >
-          <View style={styles.vehicleGrid}>
-            {filteredVehicles.map((v) => (
-              <VehicleCard key={v.id} {...v} variant="grid" />
-            ))}
-          </View>
+          {renderVehicleContent()}
         </ScrollView>
       </View>
 
@@ -154,5 +263,24 @@ const screenStyles = StyleSheet.create({
   contentArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+
+  stateListContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+
+  listState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+
+  listStateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
   },
 });

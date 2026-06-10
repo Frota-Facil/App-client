@@ -529,6 +529,14 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  vehicleModalRequestButtonDisabled: {
+    backgroundColor: "#CBD5E1",
+  },
+
+  vehicleModalRequestButtonTextDisabled: {
+    color: "#4A5568",
+  },
+
   vehicleModalFooterButton: {
     backgroundColor: "#E5E7EB",
     borderRadius: 18,

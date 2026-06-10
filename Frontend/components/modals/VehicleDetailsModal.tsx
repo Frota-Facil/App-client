@@ -6,6 +6,7 @@ import {
   formatVehicleType,
   getVehicleDisplayName,
   getVehicleStatusMeta,
+  normalizeVehicleStatus,
   Vehicle,
 } from "../../constants/data";
 import { styles } from "../../styles/globalStyles";
@@ -33,6 +34,19 @@ const DetailRow = ({ label, value }: { label: string; value: string }) => (
   </View>
 );
 
+const getRequestButtonText = (status: string) => {
+  switch (status) {
+    case "available":
+      return "Solicitar veículo";
+    case "in_use":
+      return "Veículo em uso";
+    case "maintenance":
+      return "Veículo em manutenção";
+    default:
+      return "Veículo indisponível";
+  }
+};
+
 export const VehicleDetailsModal = ({
   visible,
   vehicle,
@@ -44,9 +58,16 @@ export const VehicleDetailsModal = ({
 
   const displayName = getVehicleDisplayName(vehicle);
   const status = getVehicleStatusMeta(vehicle.status);
+  const normalizedStatus = normalizeVehicleStatus(vehicle.status);
+  const canRequestVehicle = normalizedStatus === "available";
   const imageSource = vehicle.imageUrl ? { uri: vehicle.imageUrl } : vehicleImage;
+  const requestButtonText = getRequestButtonText(normalizedStatus);
 
   const handleRequestVehicle = () => {
+    if (!canRequestVehicle) {
+      return;
+    }
+
     onClose();
     router.push("/addrequest");
   };
@@ -87,11 +108,21 @@ export const VehicleDetailsModal = ({
 
           <TouchableOpacity
             activeOpacity={0.85}
+            disabled={!canRequestVehicle}
             onPress={handleRequestVehicle}
-            style={styles.vehicleModalRequestButton}
+            style={[
+              styles.vehicleModalRequestButton,
+              !canRequestVehicle && styles.vehicleModalRequestButtonDisabled,
+            ]}
           >
-            <Text style={styles.vehicleModalRequestButtonText}>
-              Solicitar veículo
+            <Text
+              style={[
+                styles.vehicleModalRequestButtonText,
+                !canRequestVehicle &&
+                  styles.vehicleModalRequestButtonTextDisabled,
+              ]}
+            >
+              {requestButtonText}
             </Text>
           </TouchableOpacity>
 
