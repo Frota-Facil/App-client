@@ -3,12 +3,15 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { styles } from "../../styles/globalStyles";
 import { NotificationType } from "../../constants/notifications";
 
+type NotificationCardType = NotificationType | "created";
+
 type Props = {
   title: string;
   message: string;
   date: string;
-  type: NotificationType;
+  type: NotificationCardType;
   read?: boolean;
+  onPress?: () => void;
 };
 
 export const NotificationCard: React.FC<Props> = ({
@@ -17,6 +20,7 @@ export const NotificationCard: React.FC<Props> = ({
   date,
   type,
   read = false,
+  onPress,
 }) => {
   const getNotificationStyle = () => {
     switch (type) {
@@ -33,6 +37,13 @@ export const NotificationCard: React.FC<Props> = ({
           bg: "#FEE2E2",
           color: "#DC2626",
         };
+
+      case "created":
+        return {
+          icon: "!",
+          bg: "#DBEAFE",
+          color: "#2563EB",
+        };
     }
   };
 
@@ -40,6 +51,7 @@ export const NotificationCard: React.FC<Props> = ({
 
   return (
     <TouchableOpacity
+      onPress={onPress}
       style={[
         styles.notificationCard,
         read && {

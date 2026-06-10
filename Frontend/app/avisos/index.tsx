@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,32 +21,215 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { FilterTabs } from "../../components/layout/FilterTabs";
 import { NotificationCard } from "../../components/cards/NotificationCard";
+import { NotificationFilter } from "../../constants/notifications";
 import {
-  notifications,
-  NotificationFilter,
-} from "../../constants/notifications";
+  fetchNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+  NotificationRequestError,
+  type AppNotification,
+} from "../../services/notifications";
+import { useAuth } from "../../contexts/AuthContext";
 import { colors } from "../../constants/colors";
+
+const getNotificationCardType = (type: AppNotification["type"]) => {
+  if (type === "REQUEST_REJECTED") {
+    return "rejected";
+  }
+
+  if (type === "REQUEST_CREATED") {
+    return "created";
+  }
+
+  return "approved";
+};
+
+const formatNotificationDate = (date: string) => {
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return date;
+  }
+
+  return parsedDate.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 export default function AvisosScreen() {
   const insets = useSafeAreaInsets();
+  const { token } = useAuth();
   const [filter, setFilter] = useState<NotificationFilter>("Todas");
-  const [notificationItems, setNotificationItems] = useState(notifications);
+  const [notificationItems, setNotificationItems] = useState<AppNotification[]>(
+    []
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const filters: NotificationFilter[] = ["Todas", "Aprovadas", "Recusadas"];
 
-  const handleMarkAllAsRead = () => {
-    setNotificationItems((prev) =>
-      prev.map((item) => ({
-        ...item,
-        read: true,
-      }))
-    );
+  useEffect(() => {
+    let isCurrent = true;
+
+    const loadNotifications = async () => {
+      if (!token) {
+        setNotificationItems([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const nextNotifications = await fetchNotifications(token);
+
+        if (isCurrent) {
+          setNotificationItems(nextNotifications);
+        }
+      } catch (error) {
+        if (!isCurrent) {
+          return;
+        }
+
+        if (error instanceof NotificationRequestError) {
+          setError(error.message);
+          return;
+        }
+
+        setError("Não foi possível carregar as notificações.");
+      } finally {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadNotifications();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [token]);
+
+  const handleMarkAllAsRead = async () => {
+    if (!token) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const updatedNotifications = await markAllNotificationsAsRead(token);
+
+      if (updatedNotifications.length > 0) {
+        setNotificationItems(updatedNotifications);
+        return;
+      }
+
+      setNotificationItems((prev) =>
+        prev.map((item) => ({
+          ...item,
+          read: true,
+        }))
+      );
+    } catch (error) {
+      if (error instanceof NotificationRequestError) {
+        setError(error.message);
+        return;
+      }
+
+      setError("Não foi possível marcar as notificações como lidas.");
+    }
+  };
+
+  const handleMarkNotificationAsRead = async (notificationId: string) => {
+    if (!token) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const updatedNotification = await markNotificationAsRead(
+        notificationId,
+        token
+      );
+
+      setNotificationItems((prev) =>
+        prev.map((item) =>
+          item.id === notificationId
+            ? {
+                ...item,
+                ...updatedNotification,
+                read: true,
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      if (error instanceof NotificationRequestError) {
+        setError(error.message);
+        return;
+      }
+
+      setError("Não foi possível marcar a notificação como lida.");
+    }
   };
 
   const filteredNotifications =
     filter === "Todas"
       ? notificationItems
-      : notificationItems.filter((item) => item.category === filter);
+      : notificationItems.filter((item) =>
+          filter === "Aprovadas"
+            ? item.type === "REQUEST_APPROVED"
+            : item.type === "REQUEST_REJECTED"
+        );
+
+  const renderNotificationContent = () => {
+    if (loading) {
+      return (
+        <View style={screenStyles.listState}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={screenStyles.listStateText}>Carregando notificações...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={screenStyles.listState}>
+          <Text style={screenStyles.listStateText}>{error}</Text>
+        </View>
+      );
+    }
+
+    if (filteredNotifications.length === 0) {
+      return (
+        <View style={screenStyles.listState}>
+          <Text style={screenStyles.listStateText}>
+            Nenhuma notificação encontrada.
+          </Text>
+        </View>
+      );
+    }
+
+    return filteredNotifications.map((item) => (
+      <NotificationCard
+        key={item.id}
+        title={item.title}
+        message={item.message}
+        date={formatNotificationDate(item.createdAt)}
+        type={getNotificationCardType(item.type)}
+        read={item.read}
+        onPress={() => handleMarkNotificationAsRead(item.id)}
+      />
+    ));
+  };
 
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
@@ -76,19 +260,12 @@ export default function AvisosScreen() {
           style={styles.body}
           contentContainerStyle={[
             styles.notificationsListContent,
+            (loading || error || filteredNotifications.length === 0) &&
+              screenStyles.stateListContent,
             { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
           ]}
         >
-          {filteredNotifications.map((item) => (
-            <NotificationCard
-              key={item.id}
-              title={item.title}
-              message={item.message}
-              date={item.date}
-              type={item.type}
-              read={item.read}
-            />
-          ))}
+          {renderNotificationContent()}
         </ScrollView>
       </View>
 
@@ -157,5 +334,24 @@ const screenStyles = StyleSheet.create({
     color: "#111827",
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  stateListContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+
+  listState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+
+  listStateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
   },
 });
