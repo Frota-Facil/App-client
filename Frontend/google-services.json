@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "790221805",
+    "project_id": "sif-50fc2",
+    "storage_bucket": "sif-50fc2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:790221805:android:2c5f3c8ef72a75f8c84de4",
+        "android_client_info": {
+          "package_name": "com.everton5gems.sif"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDh1Jnck3kISE8xs3UALDOecyJ6fE1JHN4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
