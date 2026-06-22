@@ -1,5 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,12 +11,19 @@ import {
 import { router } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { LogOut, Pencil } from "lucide-react-native";
+import { Check, LogOut, Pencil, X } from "lucide-react-native";
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  getMe,
+  ProfileRequestError,
+  updateMe,
+} from "../../services/profileService";
+import type { Profile } from "../../services/profileService";
 import {
   baseCard,
   CARD_SPACING,
@@ -24,19 +32,6 @@ import {
 } from "../../styles/globalStyles";
 
 const PROFILE_PRIMARY = colors.primary;
-
-const user = {
-  initials: "CM",
-  name: "Carlos Mendes",
-  role: "Secretaria de Obras",
-  fullName: "Carlos Mendes",
-  registration: "MUN-04823",
-  cpf: "123.456.789-00",
-  email: "carlos.mendes@municipio.gov.br",
-  phone: "(11) 98765-4321",
-  cnh: "01234567890",
-  department: "Secretaria de Obras",
-};
 
 type EditableProfileField = "fullName" | "phone";
 
@@ -49,7 +44,10 @@ type ProfileFieldProps = {
   inputRef?: React.RefObject<TextInput | null>;
   onChangeText?: (value: string) => void;
   onEditPress?: () => void;
-  onBlur?: () => void;
+  onSavePress?: () => void;
+  onCancelPress?: () => void;
+  onSubmitEditing?: () => void;
+  isSaving?: boolean;
 };
 
 type ProfileActionButtonProps = {
@@ -68,7 +66,10 @@ function ProfileField({
   inputRef,
   onChangeText,
   onEditPress,
-  onBlur,
+  onSavePress,
+  onCancelPress,
+  onSubmitEditing,
+  isSaving,
 }: ProfileFieldProps) {
   return (
     <View style={styles.fieldGroup}>
@@ -81,27 +82,49 @@ function ProfileField({
           editable={Boolean(editable && isEditing)}
           keyboardType={keyboardType}
           onChangeText={onChangeText}
-          onBlur={onBlur}
+          onSubmitEditing={onSubmitEditing}
+          returnKeyType={isEditing ? "done" : undefined}
           style={[styles.fieldValue, !editable && styles.readOnlyFieldValue]}
           placeholderTextColor={colors.textMuted}
         />
 
         {editable && (
-          <TouchableOpacity
-            accessibilityLabel={`Editar ${label}`}
-            activeOpacity={0.7}
-            onPress={onEditPress}
-            style={[
-              styles.editFieldButton,
-              isEditing && styles.editFieldButtonActive,
-            ]}
-          >
-            <Pencil
-              color={isEditing ? "#FFFFFF" : PROFILE_PRIMARY}
-              size={16}
-              strokeWidth={2.4}
-            />
-          </TouchableOpacity>
+          <View style={styles.fieldActions}>
+            {isEditing && (
+              <TouchableOpacity
+                accessibilityLabel={`Cancelar edição de ${label}`}
+                activeOpacity={0.7}
+                disabled={isSaving}
+                onPress={onCancelPress}
+                style={styles.cancelFieldButton}
+              >
+                <X color={colors.textSecondary} size={17} strokeWidth={2.4} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              accessibilityLabel={`${isEditing ? "Salvar" : "Editar"} ${label}`}
+              activeOpacity={0.7}
+              disabled={isSaving}
+              onPress={isEditing ? onSavePress : onEditPress}
+              style={[
+                styles.editFieldButton,
+                isEditing && styles.editFieldButtonActive,
+              ]}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : isEditing ? (
+                <Check color="#FFFFFF" size={17} strokeWidth={2.5} />
+              ) : (
+                <Pencil
+                  color={PROFILE_PRIMARY}
+                  size={16}
+                  strokeWidth={2.4}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </View>
@@ -128,25 +151,219 @@ function ProfileActionButton({
   );
 }
 
+const onlyDigits = (value: string) => value.replace(/\D/g, "");
+
+const formatCpf = (cpf: string) => {
+  const digits = onlyDigits(cpf);
+
+  if (digits.length !== 11) {
+    return cpf;
+  }
+
+  return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+};
+
+const formatPhone = (phone: string) => {
+  const digits = onlyDigits(phone).slice(0, 14);
+
+  if (digits.length === 13 && digits.startsWith("55")) {
+    return digits.replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, "+$1 ($2) $3-$4");
+  }
+
+  if (digits.length === 12 && digits.startsWith("55")) {
+    return digits.replace(/(\d{2})(\d{2})(\d{4})(\d{4})/, "+$1 ($2) $3-$4");
+  }
+
+  if (digits.length === 11) {
+    return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  }
+
+  if (digits.length === 10) {
+    return digits.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  }
+
+  return digits;
+};
+
+const getInitials = (name: string) => {
+  const nameParts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (nameParts.length === 0) {
+    return "?";
+  }
+
+  if (nameParts.length === 1) {
+    return nameParts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
+};
+
+const getProfileErrorMessage = (error: unknown, fallbackMessage: string) => {
+  if (!(error instanceof ProfileRequestError)) {
+    return fallbackMessage;
+  }
+
+  if (error.status === 403) {
+    return "Você não tem permissão para acessar estes dados.";
+  }
+
+  if (error.isConnectionError) {
+    return "Não foi possível conectar ao servidor.";
+  }
+
+  return fallbackMessage;
+};
+
 export default function PerfilScreen() {
   const insets = useSafeAreaInsets();
-  const [profile, setProfile] = useState({
-    fullName: user.fullName,
-    phone: user.phone,
-  });
+  const { signOut, token } = useAuth();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [formError, setFormError] = useState("");
   const [editingField, setEditingField] =
     useState<EditableProfileField | null>(null);
+  const [savingField, setSavingField] =
+    useState<EditableProfileField | null>(null);
+  const [fullNameDraft, setFullNameDraft] = useState("");
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const fullNameRef = useRef<TextInput | null>(null);
   const phoneRef = useRef<TextInput | null>(null);
+
+  const loadProfile = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError("");
+
+    try {
+      const loadedProfile = await getMe(token);
+
+      setProfile(loadedProfile);
+      setFullNameDraft(loadedProfile.name);
+      setPhoneDraft(formatPhone(loadedProfile.phone));
+    } catch (error) {
+      if (error instanceof ProfileRequestError && error.status === 401) {
+        await signOut();
+        return;
+      }
+
+      setLoadError(
+        getProfileErrorMessage(error, "Não foi possível carregar o perfil."),
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [signOut, token]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
 
   const startEditing = (
     field: EditableProfileField,
     ref: React.RefObject<TextInput | null>,
   ) => {
+    if (!profile) {
+      return;
+    }
+
+    setFullNameDraft(profile.name);
+    setPhoneDraft(formatPhone(profile.phone));
+    setFormError("");
     setEditingField(field);
     setTimeout(() => {
       ref.current?.focus();
     }, 100);
+  };
+
+  const cancelEditing = () => {
+    if (profile) {
+      setFullNameDraft(profile.name);
+      setPhoneDraft(formatPhone(profile.phone));
+    }
+
+    setFormError("");
+    setEditingField(null);
+  };
+
+  const saveField = async (field: EditableProfileField) => {
+    if (!token || !profile || savingField) {
+      return;
+    }
+
+    const trimmedName = fullNameDraft.trim();
+    const normalizedPhone = onlyDigits(phoneDraft);
+
+    if (field === "fullName" && !trimmedName) {
+      setFormError("O nome completo não pode ser vazio.");
+      return;
+    }
+
+    if (field === "phone" && !normalizedPhone) {
+      setFormError("O telefone não pode ser vazio.");
+      return;
+    }
+
+    if (
+      field === "phone" &&
+      (normalizedPhone.length < 10 || normalizedPhone.length > 14)
+    ) {
+      setFormError("Informe um telefone válido com 10 a 14 dígitos.");
+      return;
+    }
+
+    const hasChanged =
+      field === "fullName"
+        ? trimmedName !== profile.name
+        : normalizedPhone !== onlyDigits(profile.phone);
+
+    if (!hasChanged) {
+      cancelEditing();
+      return;
+    }
+
+    setSavingField(field);
+    setFormError("");
+
+    try {
+      const updatedProfile = await updateMe(
+        token,
+        field === "fullName"
+          ? { name: trimmedName }
+          : { phone: normalizedPhone },
+      );
+
+      setProfile(updatedProfile);
+      setFullNameDraft(updatedProfile.name);
+      setPhoneDraft(formatPhone(updatedProfile.phone));
+      setEditingField(null);
+    } catch (error) {
+      if (error instanceof ProfileRequestError && error.status === 401) {
+        await signOut();
+        return;
+      }
+
+      setFormError(
+        getProfileErrorMessage(error, "Não foi possível atualizar o perfil."),
+      );
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+
+    try {
+      await signOut();
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   return (
@@ -177,63 +394,100 @@ export default function PerfilScreen() {
           { paddingBottom: getTabBarContentPadding(insets.bottom) + 24 },
         ]}
       >
-        <View style={styles.profileIntro}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user.initials}</Text>
+        {isLoading ? (
+          <View style={styles.feedbackContainer}>
+            <ActivityIndicator color={PROFILE_PRIMARY} size="large" />
+            <Text style={styles.feedbackText}>Carregando perfil...</Text>
           </View>
+        ) : loadError ? (
+          <View style={styles.feedbackContainer}>
+            <Text style={styles.errorText}>{loadError}</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => void loadProfile()}
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryButtonText}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        ) : profile ? (
+          <>
+            <View style={styles.profileIntro}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {getInitials(profile.name)}
+                </Text>
+              </View>
 
-          <Text style={styles.profileName}>{profile.fullName}</Text>
-          <Text style={styles.profileRole}>{user.role}</Text>
-        </View>
+              <Text style={styles.profileName}>{profile.name}</Text>
+              <Text style={styles.profileRole}>
+                {profile.department ?? "Não informado"}
+              </Text>
+            </View>
 
-        <ProfileField
-          label="Nome completo"
-          value={profile.fullName}
-          editable
-          isEditing={editingField === "fullName"}
-          inputRef={fullNameRef}
-          onChangeText={(fullName) =>
-            setProfile((currentProfile) => ({
-              ...currentProfile,
-              fullName,
-            }))
-          }
-          onEditPress={() => startEditing("fullName", fullNameRef)}
-          onBlur={() => setEditingField(null)}
-        />
-        <ProfileField label="Matrícula" value={user.registration} />
-        <ProfileField label="CPF" value={user.cpf} />
-        <ProfileField label="Email" value={user.email} />
-        <ProfileField
-          label="Telefone"
-          value={profile.phone}
-          editable
-          isEditing={editingField === "phone"}
-          keyboardType="phone-pad"
-          inputRef={phoneRef}
-          onChangeText={(phone) =>
-            setProfile((currentProfile) => ({
-              ...currentProfile,
-              phone,
-            }))
-          }
-          onEditPress={() => startEditing("phone", phoneRef)}
-          onBlur={() => setEditingField(null)}
-        />
-        <ProfileField label="CNH" value={user.cnh} />
-        <ProfileField
-          label="Secretaria/Departamento"
-          value={user.department}
-        />
+            {formError ? (
+              <Text accessibilityRole="alert" style={styles.formErrorText}>
+                {formError}
+              </Text>
+            ) : null}
 
-        <View style={styles.actions}>
-          <ProfileActionButton
-            title="Sair"
-            icon={<LogOut color="#EF4444" size={18} strokeWidth={2.2} />}
-            variant="danger"
-            onPress={() => router.replace("/")}
-          />
-        </View>
+            <ProfileField
+              label="Nome completo"
+              value={
+                editingField === "fullName" ? fullNameDraft : profile.name
+              }
+              editable
+              isEditing={editingField === "fullName"}
+              isSaving={savingField === "fullName"}
+              inputRef={fullNameRef}
+              onChangeText={setFullNameDraft}
+              onEditPress={() => startEditing("fullName", fullNameRef)}
+              onSavePress={() => void saveField("fullName")}
+              onCancelPress={cancelEditing}
+              onSubmitEditing={() => void saveField("fullName")}
+            />
+            <ProfileField label="CPF" value={formatCpf(profile.cpf)} />
+            <ProfileField label="Email" value={profile.email} />
+            <ProfileField
+              label="Telefone"
+              value={
+                editingField === "phone"
+                  ? phoneDraft
+                  : formatPhone(profile.phone)
+              }
+              editable
+              isEditing={editingField === "phone"}
+              isSaving={savingField === "phone"}
+              keyboardType="phone-pad"
+              inputRef={phoneRef}
+              onChangeText={(phone) => setPhoneDraft(formatPhone(phone))}
+              onEditPress={() => startEditing("phone", phoneRef)}
+              onSavePress={() => void saveField("phone")}
+              onCancelPress={cancelEditing}
+              onSubmitEditing={() => void saveField("phone")}
+            />
+            <ProfileField label="CNH" value={profile.cnh ?? "Não informado"} />
+            <ProfileField
+              label="Secretaria/Departamento"
+              value={profile.department ?? "Não informado"}
+            />
+
+            <View style={styles.actions}>
+              <ProfileActionButton
+                title={isSigningOut ? "Saindo..." : "Sair"}
+                icon={
+                  isSigningOut ? (
+                    <ActivityIndicator color={colors.danger} size="small" />
+                  ) : (
+                    <LogOut color="#EF4444" size={18} strokeWidth={2.2} />
+                  )
+                }
+                variant="danger"
+                onPress={() => void handleSignOut()}
+              />
+            </View>
+          </>
+        ) : null}
       </ScrollView>
 
     </SafeAreaView>
@@ -322,6 +576,12 @@ const styles = StyleSheet.create({
     padding: 0,
   },
 
+  fieldActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
   readOnlyFieldValue: {
     color: colors.textSecondary,
   },
@@ -337,6 +597,56 @@ const styles = StyleSheet.create({
 
   editFieldButtonActive: {
     backgroundColor: PROFILE_PRIMARY,
+  },
+
+  cancelFieldButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
+
+  feedbackContainer: {
+    minHeight: 320,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+    paddingHorizontal: 24,
+  },
+
+  feedbackText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+    textAlign: "center",
+  },
+
+  formErrorText: {
+    marginBottom: 14,
+    color: colors.danger,
+    fontSize: 13,
+    textAlign: "center",
+  },
+
+  retryButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: PROFILE_PRIMARY,
+    paddingHorizontal: 18,
+  },
+
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 
   actions: {
