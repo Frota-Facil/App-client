@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   View,
   Text,
   TextInput,
@@ -21,11 +23,13 @@ import {
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import { colors } from "../../constants/colors";
+import { getVehicleDisplayName, type Vehicle } from "../../constants/data";
+import { useAuth } from "../../contexts/AuthContext";
 import {
-  getVehicleDisplayName,
-  vehicles,
-  type Vehicle,
-} from "../../constants/data";
+  createMyRequest,
+  RequestRequestError,
+} from "../../services/requests";
+import { getVehicles, VehicleRequestError } from "../../services/vehicles";
 import { baseCard, SCREEN_PADDING } from "../../styles/globalStyles";
 
 const ACTION_PRIMARY = colors.primary;
@@ -140,6 +144,47 @@ const formatCalendarDate = (value: string) => {
 
 const normalizeSearchValue = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const buildRequestDate = (date: string, time: string) => {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+};
+
+const isScheduleConflict = (message: string) => {
+  const normalizedMessage = message.toLowerCase();
+
+  return (
+    normalizedMessage.includes("agendado") ||
+    normalizedMessage.includes("conflit") ||
+    normalizedMessage.includes("já possui solicitação")
+  );
+};
+
+const getCreateErrorMessage = (error: unknown) => {
+  if (!(error instanceof RequestRequestError)) {
+    return "Não foi possível salvar a solicitação.";
+  }
+
+  if (error.isConnectionError) {
+    return "Não foi possível conectar ao servidor.";
+  }
+
+  if (error.status === 403) {
+    return "Você não tem permissão para realizar esta ação.";
+  }
+
+  if (error.status === 409 || isScheduleConflict(error.message)) {
+    return "Este veículo já possui solicitação nesse horário.";
+  }
+
+  if (error.status === 400) {
+    return error.message;
+  }
+
+  return "Não foi possível salvar a solicitação.";
+};
 
 const getTimeParts = (value?: string | null) => {
   if (value && /^\d{2}:\d{2}$/.test(value)) {
@@ -271,6 +316,7 @@ function TimeOptionColumn({
 };
 
 export default function MakeRequest() {
+  const { signOut, token } = useAuth();
   const [date, setDate] = useState<string | null>(null);
   const [selectedDateString, setSelectedDateString] = useState<string | null>(
     null
@@ -286,12 +332,17 @@ export default function MakeRequest() {
   const [reason, setReason] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [fleetVehicles, setFleetVehicles] = useState<Vehicle[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [vehicleError, setVehicleError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVehicleOptions, setShowVehicleOptions] = useState(false);
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
 
-  const filteredVehicles = vehicles.filter((vehicle) => {
+  const filteredVehicles = fleetVehicles.filter((vehicle) => {
     const search = vehicleSearch.trim().toLowerCase();
     const normalizedSearch = normalizeSearchValue(vehicleSearch);
 
@@ -329,6 +380,65 @@ export default function MakeRequest() {
         },
       }
     : {};
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    const loadVehicles = async () => {
+      if (!token) {
+        setFleetVehicles([]);
+        setIsLoadingVehicles(false);
+        router.replace("/");
+        return;
+      }
+
+      setIsLoadingVehicles(true);
+      setVehicleError("");
+
+      try {
+        const nextVehicles = await getVehicles(token);
+
+        if (isCurrent) {
+          setFleetVehicles(nextVehicles);
+        }
+      } catch (error) {
+        if (error instanceof VehicleRequestError && error.status === 401) {
+          await signOut();
+          return;
+        }
+
+        if (!isCurrent) {
+          return;
+        }
+
+        if (error instanceof VehicleRequestError) {
+          if (error.status === 403) {
+            setVehicleError(
+              "Você não tem permissão para realizar esta ação."
+            );
+            return;
+          }
+
+          if (error.isConnectionError) {
+            setVehicleError("Não foi possível conectar ao servidor.");
+            return;
+          }
+        }
+
+        setVehicleError("Não foi possível carregar os veículos.");
+      } finally {
+        if (isCurrent) {
+          setIsLoadingVehicles(false);
+        }
+      }
+    };
+
+    void loadVehicles();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [signOut, token]);
 
   const openDatePicker = () => {
     setSelectedDateString(date ?? getCalendarDateString());
@@ -398,6 +508,75 @@ export default function MakeRequest() {
     setSelectedVehicle(vehicle);
     setVehicleSearch(`${displayName} — ${vehicle.plate}`);
     setShowVehicleOptions(false);
+    setFormError("");
+  };
+
+  const handleSave = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    setFormError("");
+
+    const trimmedDestination = destination.trim();
+    const trimmedReason = reason.trim();
+
+    if (
+      !date ||
+      !startTime ||
+      !endTime ||
+      !selectedVehicle ||
+      !trimmedDestination ||
+      !trimmedReason
+    ) {
+      setFormError("Preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const predictedStartDate = buildRequestDate(date, startTime);
+    const predictedEndDate = buildRequestDate(date, endTime);
+
+    if (
+      Number.isNaN(predictedStartDate.getTime()) ||
+      Number.isNaN(predictedEndDate.getTime())
+    ) {
+      setFormError("Informe uma data e horários válidos.");
+      return;
+    }
+
+    if (predictedEndDate <= predictedStartDate) {
+      setFormError("O término previsto deve ser maior que o início.");
+      return;
+    }
+
+    if (!token) {
+      router.replace("/");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await createMyRequest(token, {
+        vehicleId: String(selectedVehicle.id),
+        predictedStartDate: predictedStartDate.toISOString(),
+        predictedEndDate: predictedEndDate.toISOString(),
+        destination: trimmedDestination,
+        reason: trimmedReason,
+      });
+
+      Alert.alert("Solicitação criada", "Sua solicitação foi enviada com sucesso.");
+      router.replace("/solicitacoes");
+    } catch (error) {
+      if (error instanceof RequestRequestError && error.status === 401) {
+        await signOut();
+        return;
+      }
+
+      setFormError(getCreateErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -574,14 +753,33 @@ export default function MakeRequest() {
               setVehicleSearch(value);
               setSelectedVehicle(null);
               setShowVehicleOptions(true);
+              setFormError("");
             }}
-            onFocus={() => setShowVehicleOptions(true)}
-            placeholder="Digite modelo ou placa"
+            onFocus={() => {
+              if (!isLoadingVehicles && !vehicleError) {
+                setShowVehicleOptions(true);
+              }
+            }}
+            editable={!isLoadingVehicles && !vehicleError}
+            placeholder={
+              isLoadingVehicles ? "Carregando veículos..." : "Digite modelo ou placa"
+            }
             style={styles.input}
             placeholderTextColor={colors.textMuted}
           />
 
-          {showVehicleOptions && (
+          {isLoadingVehicles && (
+            <View style={styles.vehicleLoading}>
+              <ActivityIndicator color={colors.primary} size="small" />
+              <Text style={styles.vehicleLoadingText}>Carregando veículos...</Text>
+            </View>
+          )}
+
+          {vehicleError ? (
+            <Text style={styles.fieldError}>{vehicleError}</Text>
+          ) : null}
+
+          {showVehicleOptions && !isLoadingVehicles && !vehicleError && (
             <View style={styles.vehicleOptionsCard}>
               {filteredVehicles.length > 0 ? (
                 filteredVehicles.map((vehicle) => {
@@ -617,7 +815,10 @@ export default function MakeRequest() {
         <TextInput
           placeholder="Local de destino"
           value={destination}
-          onChangeText={setDestination}
+          onChangeText={(value) => {
+            setDestination(value);
+            setFormError("");
+          }}
           style={styles.input}
           placeholderTextColor={colors.textMuted}
         />
@@ -627,41 +828,46 @@ export default function MakeRequest() {
         <TextInput
           placeholder="Motivo da solicitação"
           value={reason}
-          onChangeText={setReason}
+          onChangeText={(value) => {
+            setReason(value);
+            setFormError("");
+          }}
           style={[styles.input, styles.textArea]}
           multiline
           placeholderTextColor={colors.textMuted}
         />
 
+        {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+
         {/* BOTÕES */}
         <View style={styles.buttons}>
           <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
+            disabled={isSubmitting}
+            style={[
+              styles.button,
+              styles.cancelButton,
+              isSubmitting && styles.disabledButton,
+            ]}
             onPress={() => router.back()}
           >
             <Text style={styles.cancelText}>Cancelar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.saveButton]}
-            onPress={() => {
-              console.log({
-                date: date ? formatCalendarDate(date) : "",
-                start: startTime,
-                end: endTime,
-                destination,
-                reason,
-                vehicle: selectedVehicle
-                  ? {
-                      id: selectedVehicle.id,
-                      model: getVehicleDisplayName(selectedVehicle),
-                      plate: selectedVehicle.plate,
-                    }
-                  : null,
-              });
-            }}
+            disabled={isSubmitting || isLoadingVehicles || Boolean(vehicleError)}
+            style={[
+              styles.button,
+              styles.saveButton,
+              (isSubmitting || isLoadingVehicles || Boolean(vehicleError)) &&
+                styles.disabledButton,
+            ]}
+            onPress={handleSave}
           >
-            <Text style={styles.saveText}>Salvar</Text>
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.saveText}>Salvar</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -914,6 +1120,33 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
 
+  vehicleLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+
+  vehicleLoadingText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+
+  fieldError: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+
+  formError: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 14,
+    textAlign: "center",
+  },
+
   row: {
     flexDirection: "row",
     gap: 12,
@@ -944,6 +1177,10 @@ const styles = StyleSheet.create({
 
   saveButton: {
     backgroundColor: ACTION_PRIMARY,
+  },
+
+  disabledButton: {
+    opacity: 0.6,
   },
 
   cancelText: {

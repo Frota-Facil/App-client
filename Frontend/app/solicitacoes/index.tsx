@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   ScrollView,
   StyleSheet,
@@ -7,50 +8,87 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
+import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { baseCard, styles } from "../../styles/globalStyles";
+import { RequestCard } from "../../components/cards/RequestCard";
+import { FilterTabs } from "../../components/layout/FilterTabs";
+import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
+import { PageHeader } from "../../components/layout/PageHeader";
 import {
   getTabBarContentPadding,
   getTabBarHeight,
 } from "../../components/layout/TabBar";
-import { PageHeader } from "../../components/layout/PageHeader";
-import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
-import { FilterTabs } from "../../components/layout/FilterTabs";
-import { RequestCard } from "../../components/cards/RequestCard";
-import { requests } from "../../constants/requests";
-import { router } from "expo-router";
 import { colors } from "../../constants/colors";
+import {
+  getRequestStatusLabel,
+  type RequestStatus,
+  type VehicleRequest,
+} from "../../constants/requests";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  getMyRequests,
+  RequestRequestError,
+} from "../../services/requests";
+import { baseCard, styles } from "../../styles/globalStyles";
 
-type RequestFilter = "Todas" | "Pendentes" | "Aprovadas" | "Recusadas";
+type RequestFilter =
+  | "Todas"
+  | "Pendentes"
+  | "Aprovadas"
+  | "Recusadas"
+  | "Concluídas";
 
 const filters: RequestFilter[] = [
   "Todas",
   "Pendentes",
   "Aprovadas",
   "Recusadas",
+  "Concluídas",
 ];
+
+const filterStatus: Partial<Record<RequestFilter, RequestStatus>> = {
+  Pendentes: "PENDING",
+  Aprovadas: "APPROVED",
+  Recusadas: "REJECTED",
+  Concluídas: "COMPLETED",
+};
 
 type RequestDetailRowProps = {
   label: string;
   value: string;
 };
 
-type RequestDetail = {
-  label: string;
-  value?: string;
+const padDatePart = (value: number) => String(value).padStart(2, "0");
+
+const parseRequestDate = (value: string) => {
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const formatRequestDate = (value: string) => {
-  const [datePart] = value.split("T");
-  const [year, month, day] = datePart.split("-");
+  const date = parseRequestDate(value);
 
-  if (!year || !month || !day) {
+  if (!date) {
     return value;
   }
 
-  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+  return `${padDatePart(date.getDate())}/${padDatePart(
+    date.getMonth() + 1
+  )}/${date.getFullYear()}`;
+};
+
+const formatRequestTime = (value: string) => {
+  const date = parseRequestDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
 };
 
 const RequestDetailRow = ({ label, value }: RequestDetailRowProps) => (
@@ -60,44 +98,157 @@ const RequestDetailRow = ({ label, value }: RequestDetailRowProps) => (
   </View>
 );
 
-const getRequestPurpose = (request: (typeof requests)[number]) =>
-  request.reason ?? request.finalidade ?? request.purpose ?? request.motivo;
+const getLoadErrorMessage = (error: unknown) => {
+  if (!(error instanceof RequestRequestError)) {
+    return "Não foi possível carregar as solicitações.";
+  }
 
-export default function SolicitaçõesScreen() {
+  if (error.status === 403) {
+    return "Você não tem permissão para realizar esta ação.";
+  }
+
+  if (error.isConnectionError) {
+    return "Não foi possível conectar ao servidor.";
+  }
+
+  return "Não foi possível carregar as solicitações.";
+};
+
+export default function SolicitacoesScreen() {
   const insets = useSafeAreaInsets();
+  const { signOut, token } = useAuth();
   const [filter, setFilter] = useState<RequestFilter>("Todas");
-  const [selectedRequest, setSelectedRequest] = useState<
-    (typeof requests)[number] | null
-  >(null);
+  const [requests, setRequests] = useState<VehicleRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] =
+    useState<VehicleRequest | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const filteredRequests = requests.filter((request) => {
-    return (
-      filter === "Todas" ||
-      (filter === "Pendentes" && request.status === "Pendente") ||
-      (filter === "Aprovadas" && request.status === "Aprovada") ||
-      (filter === "Recusadas" && request.status === "Recusada")
-    );
-  });
+  useFocusEffect(
+    useCallback(() => {
+      let isCurrent = true;
+
+      const loadRequests = async () => {
+        if (!token) {
+          setRequests([]);
+          setIsLoading(false);
+          router.replace("/");
+          return;
+        }
+
+        setIsLoading(true);
+        setErrorMessage("");
+
+        try {
+          const nextRequests = await getMyRequests(token);
+
+          if (isCurrent) {
+            setRequests(nextRequests);
+          }
+        } catch (error) {
+          if (error instanceof RequestRequestError && error.status === 401) {
+            await signOut();
+            return;
+          }
+
+          if (isCurrent) {
+            setErrorMessage(getLoadErrorMessage(error));
+          }
+        } finally {
+          if (isCurrent) {
+            setIsLoading(false);
+          }
+        }
+      };
+
+      void loadRequests();
+
+      return () => {
+        isCurrent = false;
+      };
+    }, [signOut, token])
+  );
+
+  const filteredRequests = useMemo(() => {
+    const status = filterStatus[filter];
+
+    return status
+      ? requests.filter((request) => request.status === status)
+      : requests;
+  }, [filter, requests]);
+
   const selectedRequestDetails = selectedRequest
-    ? ([
-        { label: "Status", value: selectedRequest.status },
-        { label: "Veículo", value: selectedRequest.name },
-        { label: "Placa", value: selectedRequest.plate },
-        { label: "Data", value: formatRequestDate(selectedRequest.date) },
-        { label: "Início", value: selectedRequest.startTime },
-        { label: "Término previsto", value: selectedRequest.endTime },
-        { label: "Destino/local", value: selectedRequest.location },
-        { label: "Finalidade", value: getRequestPurpose(selectedRequest) },
+    ? [
         {
-          label: "Data de criação",
-          value: selectedRequest.createdAt
-            ? formatRequestDate(selectedRequest.createdAt)
-            : undefined,
+          label: "Status",
+          value: getRequestStatusLabel(selectedRequest.status),
         },
-      ] satisfies RequestDetail[]).filter(
-        (detail): detail is RequestDetailRowProps => Boolean(detail.value)
-      )
+        { label: "Veículo", value: selectedRequest.vehicle.model },
+        { label: "Placa", value: selectedRequest.vehicle.plate },
+        {
+          label: "Data",
+          value: formatRequestDate(selectedRequest.predictedStartDate),
+        },
+        {
+          label: "Início",
+          value: formatRequestTime(selectedRequest.predictedStartDate),
+        },
+        {
+          label: "Término previsto",
+          value: formatRequestTime(selectedRequest.predictedEndDate),
+        },
+        { label: "Destino/local", value: selectedRequest.destination },
+        { label: "Finalidade", value: selectedRequest.reason },
+      ]
     : [];
+
+  const isShowingListState =
+    isLoading || Boolean(errorMessage) || filteredRequests.length === 0;
+
+  const renderRequestContent = () => {
+    if (isLoading) {
+      return (
+        <View style={screenStyles.listState}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={screenStyles.listStateText}>
+            Carregando solicitações...
+          </Text>
+        </View>
+      );
+    }
+
+    if (errorMessage) {
+      return (
+        <View style={screenStyles.listState}>
+          <Text style={screenStyles.listStateText}>{errorMessage}</Text>
+        </View>
+      );
+    }
+
+    if (filteredRequests.length === 0) {
+      return (
+        <View style={screenStyles.listState}>
+          <Text style={screenStyles.listStateText}>
+            {requests.length === 0
+              ? "Você ainda não possui solicitações."
+              : "Nenhuma solicitação encontrada para o filtro selecionado."}
+          </Text>
+        </View>
+      );
+    }
+
+    return filteredRequests.map((request) => (
+      <RequestCard
+        key={request.id}
+        name={request.vehicle.model}
+        plate={request.vehicle.plate}
+        date={formatRequestDate(request.predictedStartDate)}
+        location={request.destination}
+        status={getRequestStatusLabel(request.status)}
+        onPress={() => setSelectedRequest(request)}
+      />
+    ));
+  };
 
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
@@ -114,7 +265,7 @@ export default function SolicitaçõesScreen() {
         rightContent={
           <HeaderHelpButton
             title="Como usar Solicitações"
-            message="Nesta tela você acompanha suas solicitações de veículos. Use os filtros para ver solicitações pendentes, aprovadas, recusadas, concluídas ou em andamento. Para criar uma nova solicitação, use o botão Solicitar veículo."
+            message="Nesta tela você acompanha suas solicitações de veículos. Use os filtros para ver solicitações pendentes, aprovadas, recusadas ou concluídas. Para criar uma nova solicitação, use o botão Solicitar veículo."
           />
         }
       />
@@ -122,21 +273,15 @@ export default function SolicitaçõesScreen() {
       <View style={screenStyles.contentArea}>
         <FilterTabs options={filters} value={filter} onChange={setFilter} />
 
-        {/* LISTA */}
         <ScrollView
           style={styles.body}
           contentContainerStyle={[
             styles.bodyContent,
+            isShowingListState && screenStyles.stateListContent,
             { paddingBottom: getTabBarContentPadding(insets.bottom) + 72 },
           ]}
         >
-          {filteredRequests.map((item) => (
-            <RequestCard
-              key={item.id}
-              {...item}
-              onPress={() => setSelectedRequest(item)}
-            />
-          ))}
+          {renderRequestContent()}
         </ScrollView>
       </View>
 
@@ -202,6 +347,25 @@ const screenStyles = StyleSheet.create({
   contentArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+
+  stateListContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+
+  listState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+
+  listStateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
   },
 
   requestFloatingButtonWrapper: {

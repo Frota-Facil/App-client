@@ -1,5 +1,7 @@
 import React from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
+
+import type { RequestStatusLabel } from "../../constants/requests";
 import { styles } from "../../styles/globalStyles";
 
 type Props = {
@@ -7,7 +9,7 @@ type Props = {
   plate: string;
   date: string;
   location: string;
-  status: "Aprovada" | "Pendente" | "Concluída" | "Recusada";
+  status: RequestStatusLabel;
   onPress?: () => void;
 };
 
