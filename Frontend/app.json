@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Frontend",
-    "slug": "Frontend",
+    "name": "SIF",
+    "slug": "sif",
     "jsEngine": "hermes",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/seta-esquerda.png",
+    "icon": "./assets/images/logo.png",
     "scheme": "frontend-app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -15,11 +15,12 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/seta-esquerda.png"
+        "foregroundImage": "./assets/images/logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.Frontend"
+      "package": "com.everton5gems.sif",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static"
@@ -28,11 +29,18 @@
       "expo-router",
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "effed79d-b036-4338-81a7-543457ed4355"
+      }
     }
   }
 }
