@@ -14,7 +14,7 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   Calendar,
   LocaleConfig,
@@ -317,6 +317,12 @@ function TimeOptionColumn({
 
 export default function MakeRequest() {
   const { signOut, token } = useAuth();
+  const { vehicleId: vehicleIdParam } = useLocalSearchParams<{
+    vehicleId?: string | string[];
+  }>();
+  const routeVehicleId = Array.isArray(vehicleIdParam)
+    ? vehicleIdParam[0]
+    : vehicleIdParam;
   const [date, setDate] = useState<string | null>(null);
   const [selectedDateString, setSelectedDateString] = useState<string | null>(
     null
@@ -341,6 +347,7 @@ export default function MakeRequest() {
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
+  const appliedVehicleId = useRef<string | null>(null);
 
   const filteredVehicles = fleetVehicles.filter((vehicle) => {
     const search = vehicleSearch.trim().toLowerCase();
@@ -439,6 +446,34 @@ export default function MakeRequest() {
       isCurrent = false;
     };
   }, [signOut, token]);
+
+  useEffect(() => {
+    if (
+      isLoadingVehicles ||
+      !routeVehicleId ||
+      appliedVehicleId.current === routeVehicleId
+    ) {
+      return;
+    }
+
+    appliedVehicleId.current = routeVehicleId;
+    const vehicle = fleetVehicles.find(
+      (item) => String(item.id) === routeVehicleId
+    );
+
+    if (!vehicle) {
+      setFormError(
+        "O veículo selecionado não foi encontrado. Escolha outro veículo."
+      );
+      return;
+    }
+
+    const displayName = getVehicleDisplayName(vehicle);
+    setSelectedVehicle(vehicle);
+    setVehicleSearch(`${displayName} — ${vehicle.plate}`);
+    setShowVehicleOptions(false);
+    setFormError("");
+  }, [fleetVehicles, isLoadingVehicles, routeVehicleId]);
 
   const openDatePicker = () => {
     setSelectedDateString(date ?? getCalendarDateString());

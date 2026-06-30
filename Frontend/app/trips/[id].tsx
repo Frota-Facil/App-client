@@ -1,14 +1,17 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Car, Clock3, MapPin, Play  } from "lucide-react-native";
+import { Car, Clock3, MapPin, Play, Square } from "lucide-react-native";
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import {
@@ -16,7 +19,19 @@ import {
   getTabBarHeight,
 } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
-import { TripStatus, trips } from "../../constants/trips";
+import {
+  formatTripFullDate,
+  formatTripTime,
+  getTripStatusMeta,
+  type Trip,
+} from "../../constants/trips";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  finishMyTrip,
+  getMyTrip,
+  startMyTrip,
+  TripRequestError,
+} from "../../services/trips";
 import {
   baseCard,
   CARD_BORDER_COLOR,
@@ -25,42 +40,45 @@ import {
   styles,
 } from "../../styles/globalStyles";
 
-const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
 const TRIP_ACTION_FOOTER_HEIGHT = 86;
 
-const canStartTrip = (startDateTime: string) => {
-  const start = new Date(startDateTime);
+const getLoadErrorMessage = (error: unknown) => {
+  if (error instanceof TripRequestError) {
+    if (error.status === 403) {
+      return "Você não tem permissão para acessar esta viagem.";
+    }
 
-  if (Number.isNaN(start.getTime())) {
-    return false;
+    if (error.status === 404) {
+      return "Viagem não encontrada.";
+    }
+
+    if (error.isConnectionError) {
+      return "Servidor indisponível. Tente novamente mais tarde.";
+    }
   }
 
-  return start.getTime() - Date.now() <= TEN_MINUTES_IN_MS;
+  return "Não foi possível carregar a viagem.";
 };
 
-const getStatus = (status: TripStatus) => {
-  switch (status) {
-    case "in_progress":
-      return {
-        label: "Em andamento",
-        bg: "#CCFBF1",
-        color: "#0F766E",
-      };
+const getActionErrorMessage = (
+  error: unknown,
+  action: "iniciar" | "finalizar"
+) => {
+  if (error instanceof TripRequestError) {
+    if (error.status === 403) {
+      return "Você não tem permissão para realizar esta ação.";
+    }
 
-    case "finished":
-      return {
-        label: "Finalizada",
-        bg: "#DCFCE7",
-        color: "#16A34A",
-      };
+    if (error.isConnectionError) {
+      return "Servidor indisponível. Tente novamente mais tarde.";
+    }
 
-    default:
-      return {
-        label: "Agendada",
-        bg: "#FEF3C7",
-        color: "#92400E",
-      };
+    if (error.message.trim()) {
+      return error.message;
+    }
   }
+
+  return `Não foi possível ${action} a viagem.`;
 };
 
 type DetailRowProps = {
@@ -82,53 +100,171 @@ const DetailRow = ({ icon, label, value }: DetailRowProps) => (
 
 export default function TripDetailsScreen() {
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id: idParam } = useLocalSearchParams<{
+    id?: string | string[];
+  }>();
+  const routeId = Array.isArray(idParam) ? idParam[0] : idParam;
+  const { signOut, token } = useAuth();
   const tabBarHeight = getTabBarHeight(insets.bottom);
-  const trip = trips.find((item) => String(item.id) === id);
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [isStarting, setIsStarting] = useState(false);
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const [description, setDescription] = useState("");
+  const [finishError, setFinishError] = useState("");
+  const [isFinishing, setIsFinishing] = useState(false);
 
-  if (!trip) {
-    return (
-      <SafeAreaView style={styles.root} edges={["top"]}>
-        <PageHeader
-          title="Detalhes da viagem"
-          subtitle="Viagem não encontrada"
-          leftIconSource={require("../../assets/images/seta-esquerda.png")}
-          onBackPress={() => router.back()}
-        />
+  useEffect(() => {
+    let isCurrent = true;
 
-        <View style={localStyles.emptyState}>
-          <Text style={localStyles.emptyStateText}>Viagem não encontrada.</Text>
+    const loadTrip = async () => {
+      if (!token) {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      if (!routeId) {
+        setLoadError("Viagem não encontrada.");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError("");
+
+      try {
+        const nextTrip = await getMyTrip(token, routeId);
+
+        if (isCurrent) {
+          setTrip(nextTrip);
+        }
+      } catch (error) {
+        if (error instanceof TripRequestError && error.status === 401) {
+          await signOut();
+          return;
+        }
+
+        if (isCurrent) {
+          setTrip(null);
+          setLoadError(getLoadErrorMessage(error));
+        }
+      } finally {
+        if (isCurrent) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadTrip();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [routeId, signOut, token]);
+
+  const handleStartTrip = async () => {
+    if (!token || !routeId || isStarting) {
+      return;
+    }
+
+    setIsStarting(true);
+    setActionError("");
+
+    try {
+      const updatedTrip = await startMyTrip(token, routeId);
+      setTrip(updatedTrip);
+    } catch (error) {
+      if (error instanceof TripRequestError && error.status === 401) {
+        await signOut();
+        return;
+      }
+
+      setActionError(getActionErrorMessage(error, "iniciar"));
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const closeFinishModal = () => {
+    if (isFinishing) {
+      return;
+    }
+
+    setShowFinishModal(false);
+    setDescription("");
+    setFinishError("");
+  };
+
+  const handleFinishTrip = async () => {
+    const trimmedDescription = description.trim();
+
+    if (!trimmedDescription) {
+      setFinishError("Informe uma descrição para finalizar a viagem.");
+      return;
+    }
+
+    if (!token || !routeId || isFinishing) {
+      return;
+    }
+
+    setIsFinishing(true);
+    setFinishError("");
+
+    try {
+      const updatedTrip = await finishMyTrip(
+        token,
+        routeId,
+        trimmedDescription
+      );
+      setTrip(updatedTrip);
+      setShowFinishModal(false);
+      setDescription("");
+      setActionError("");
+    } catch (error) {
+      if (error instanceof TripRequestError && error.status === 401) {
+        await signOut();
+        return;
+      }
+
+      setFinishError(getActionErrorMessage(error, "finalizar"));
+    } finally {
+      setIsFinishing(false);
+    }
+  };
+
+  const isScheduled = Boolean(
+    trip && trip.routeStatus !== "STARTED" && trip.routeStatus !== "FINISHED"
+  );
+  const isInProgress = trip?.routeStatus === "STARTED";
+  const hasAction = isScheduled || isInProgress;
+  const status = trip ? getTripStatusMeta(trip.routeStatus) : null;
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <View style={localStyles.stateContainer}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={localStyles.stateText}>Carregando viagem...</Text>
         </View>
+      );
+    }
 
-      </SafeAreaView>
-    );
-  }
+    if (loadError || !trip || !status) {
+      return (
+        <View style={localStyles.stateContainer}>
+          <Text style={localStyles.errorText}>
+            {loadError || "Viagem não encontrada."}
+          </Text>
+        </View>
+      );
+    }
 
-  const status = getStatus(trip.status);
-  const isInProgress = trip.status === "in_progress";
-  const isActionEnabled = isInProgress || canStartTrip(trip.startDateTime);
-  const actionLabel = isInProgress ? "Finalizar viagem" : "Iniciar viagem";
-
-  return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      <PageHeader
-        title="Detalhes da viagem"
-        subtitle={trip.fullDate}
-        leftIconSource={require("../../assets/images/seta-esquerda.png")}
-        onBackPress={() => router.back()}
-      />
-
-      <ScrollView
-        style={styles.body}
-        contentContainerStyle={[
-          styles.bodyContent,
-          {
-            paddingBottom:
-              getTabBarContentPadding(insets.bottom) +
-              TRIP_ACTION_FOOTER_HEIGHT,
-          },
-        ]}
-      >
+    return (
+      <>
         <View style={localStyles.card}>
           <View style={localStyles.summaryTop}>
             <View style={localStyles.summaryDestination}>
@@ -142,8 +278,18 @@ export default function TripDetailsScreen() {
               </View>
             </View>
 
-            <View style={[localStyles.statusBadge, { backgroundColor: status.bg }]}>
-              <View style={[localStyles.statusDot, { backgroundColor: status.color }]} />
+            <View
+              style={[
+                localStyles.statusBadge,
+                { backgroundColor: status.bg },
+              ]}
+            >
+              <View
+                style={[
+                  localStyles.statusDot,
+                  { backgroundColor: status.color },
+                ]}
+              />
               <Text style={[localStyles.statusText, { color: status.color }]}>
                 {status.label}
               </Text>
@@ -153,57 +299,165 @@ export default function TripDetailsScreen() {
           <View style={localStyles.divider} />
 
           <Text style={localStyles.sectionLabel}>FINALIDADE</Text>
-          <Text style={localStyles.purposeText}>{trip.purpose}</Text>
+          <Text style={localStyles.purposeText}>{trip.reason}</Text>
+
+          {trip.description ? (
+            <>
+              <View style={localStyles.divider} />
+              <Text style={localStyles.sectionLabel}>
+                DESCRIÇÃO DE ENCERRAMENTO
+              </Text>
+              <Text style={localStyles.purposeText}>{trip.description}</Text>
+            </>
+          ) : null}
         </View>
 
-        <View style={[localStyles.card, localStyles.gapcard]}>
+        <View style={[localStyles.card, localStyles.gapCard]}>
           <DetailRow
             icon={<Car size={18} color={colors.primary} />}
             label="Veículo"
-            value={`${trip.vehicle} • ${trip.plate}`}
+            value={`${trip.vehicle.model} • ${trip.vehicle.plate}`}
           />
 
           <DetailRow
             icon={<Clock3 size={18} color={colors.primary} />}
-            label="Horário de início"
-            value={trip.startTime}
+            label="Horário de início previsto"
+            value={formatTripTime(trip.predictedStartDate)}
           />
 
           <DetailRow
             icon={<Clock3 size={18} color={colors.primary} />}
             label="Horário previsto de término"
-            value={trip.endTime}
+            value={formatTripTime(trip.predictedEndDate)}
           />
-
-          
         </View>
+
+        {actionError ? (
+          <Text style={localStyles.actionError}>{actionError}</Text>
+        ) : null}
+      </>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.root} edges={["top"]}>
+      <PageHeader
+        title="Detalhes da viagem"
+        subtitle={trip ? formatTripFullDate(trip.predictedStartDate) : undefined}
+        leftIconSource={require("../../assets/images/seta-esquerda.png")}
+        onBackPress={() => router.back()}
+      />
+
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={[
+          styles.bodyContent,
+          (isLoading || loadError || !trip) && localStyles.stateContent,
+          {
+            paddingBottom:
+              getTabBarContentPadding(insets.bottom) +
+              (hasAction ? TRIP_ACTION_FOOTER_HEIGHT : 0),
+          },
+        ]}
+      >
+        {renderContent()}
       </ScrollView>
 
-      <View style={[localStyles.footer, { bottom: tabBarHeight }]}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          disabled={!isActionEnabled}
-          onPress={() => console.log(actionLabel)}
-          style={[
-            localStyles.actionButton,
-            !isActionEnabled && localStyles.actionButtonDisabled,
-          ]}
-        >
-          <Play
-            size={18}
-            color={isActionEnabled ? "#FFFFFF" : "#6B7280"}
-          />
-          <Text
+      {hasAction && trip ? (
+        <View style={[localStyles.footer, { bottom: tabBarHeight }]}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={isStarting}
+            onPress={
+              isInProgress
+                ? () => {
+                    setActionError("");
+                    setShowFinishModal(true);
+                  }
+                : handleStartTrip
+            }
             style={[
-              localStyles.actionButtonText,
-              !isActionEnabled && localStyles.actionButtonTextDisabled,
+              localStyles.actionButton,
+              isStarting && localStyles.actionButtonDisabled,
             ]}
           >
-            {actionLabel}
-          </Text>
-        </TouchableOpacity>
-      </View>
+            {isStarting ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : isInProgress ? (
+              <Square size={17} color="#FFFFFF" fill="#FFFFFF" />
+            ) : (
+              <Play size={18} color="#FFFFFF" />
+            )}
+            <Text style={localStyles.actionButtonText}>
+              {isStarting
+                ? "Iniciando..."
+                : isInProgress
+                  ? "Finalizar viagem"
+                  : "Iniciar viagem"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
+      <Modal
+        animationType="fade"
+        onRequestClose={closeFinishModal}
+        transparent
+        visible={showFinishModal}
+      >
+        <View style={localStyles.modalOverlay}>
+          <View style={localStyles.modalCard}>
+            <Text style={localStyles.modalTitle}>Finalizar viagem</Text>
+            <Text style={localStyles.modalLabel}>Descrição</Text>
+            <TextInput
+              editable={!isFinishing}
+              multiline
+              onChangeText={(value) => {
+                setDescription(value);
+                setFinishError("");
+              }}
+              placeholder="Descreva como foi a viagem"
+              placeholderTextColor={colors.textMuted}
+              style={localStyles.descriptionInput}
+              textAlignVertical="top"
+              value={description}
+            />
+
+            {finishError ? (
+              <Text style={localStyles.modalError}>{finishError}</Text>
+            ) : null}
+
+            <View style={localStyles.modalActions}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={isFinishing}
+                onPress={closeFinishModal}
+                style={[localStyles.modalButton, localStyles.cancelButton]}
+              >
+                <Text style={localStyles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={!description.trim() || isFinishing}
+                onPress={handleFinishTrip}
+                style={[
+                  localStyles.modalButton,
+                  localStyles.finishButton,
+                  (!description.trim() || isFinishing) &&
+                    localStyles.actionButtonDisabled,
+                ]}
+              >
+                {isFinishing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={localStyles.finishButtonText}>Finalizar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -213,37 +467,27 @@ const localStyles = StyleSheet.create({
     ...baseCard,
     marginBottom: CARD_SPACING,
   },
-
-
-  gapcard: {
+  gapCard: {
     gap: 20,
   },
-
-
-
-
   summaryTop: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
-
   summaryDestination: {
     flex: 1,
     minWidth: 0,
   },
-
   sectionLabel: {
     color: colors.textSecondary,
     fontSize: 12,
     marginBottom: 8,
   },
-
   destinationRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   destinationText: {
     color: colors.textPrimary,
     flex: 1,
@@ -251,7 +495,6 @@ const localStyles = StyleSheet.create({
     fontWeight: "700",
     marginLeft: 8,
   },
-
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -260,36 +503,30 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     marginRight: 6,
   },
-
   statusText: {
     fontSize: 12,
     fontWeight: "700",
   },
-
   divider: {
     height: 1,
     backgroundColor: CARD_BORDER_COLOR,
     marginVertical: 18,
   },
-
   purposeText: {
     color: colors.textPrimary,
     fontSize: 16,
     lineHeight: 22,
   },
-
   detailRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   detailIconWrapper: {
     width: 38,
     height: 38,
@@ -299,35 +536,29 @@ const localStyles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-
   detailTextArea: {
     flex: 1,
     minWidth: 0,
   },
-
   detailLabel: {
     color: colors.textSecondary,
     fontSize: 13,
     marginBottom: 4,
   },
-
   detailValue: {
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
-
   footer: {
     position: "absolute",
     left: 0,
     right: 0,
     height: TRIP_ACTION_FOOTER_HEIGHT,
     backgroundColor: colors.background,
-    borderTopWidth: 0,
     paddingHorizontal: SCREEN_PADDING,
     paddingTop: 14,
   },
-
   actionButton: {
     height: 48,
     borderRadius: 24,
@@ -337,30 +568,110 @@ const localStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-
   actionButtonDisabled: {
-    backgroundColor: "#D1D5DB",
+    opacity: 0.55,
   },
-
   actionButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
   },
-
-  actionButtonTextDisabled: {
-    color: "#6B7280",
+  actionError: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 4,
+    textAlign: "center",
   },
-
-  emptyState: {
-    flex: 1,
+  stateContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  stateContainer: {
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: SCREEN_PADDING,
+    paddingVertical: 40,
   },
-
-  emptyStateText: {
+  stateText: {
     color: colors.textSecondary,
     fontSize: 16,
+    marginTop: 12,
+    textAlign: "center",
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(17, 24, 39, 0.58)",
+    paddingHorizontal: 22,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 390,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalTitle: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 18,
+  },
+  modalLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 7,
+  },
+  descriptionInput: {
+    minHeight: 120,
+    borderWidth: 1,
+    borderColor: CARD_BORDER_COLOR,
+    borderRadius: 14,
+    color: colors.textPrimary,
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  modalError: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 10,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  modalButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+  },
+  cancelButton: {
+    backgroundColor: "#E5E7EB",
+  },
+  cancelButtonText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  finishButton: {
+    backgroundColor: colors.primary,
+  },
+  finishButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

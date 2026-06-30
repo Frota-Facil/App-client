@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,36 +10,162 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useIsFocused } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 
 import { Header } from "../../components/layout/Hearder";
 import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { VehicleCard } from "../../components/cards/VehicleCard";
 import { TripCard } from "../../components/cards/TripCard";
 
-import { normalizeVehicleStatus, vehicles } from "../../constants/data";
-import { trips } from "../../constants/trips";
+import {
+  isTripToday,
+  isUpcomingTrip,
+  sortTripsByStartDate,
+  type Trip,
+} from "../../constants/trips";
+import {
+  normalizeVehicleStatus,
+  type Vehicle,
+} from "../../constants/data";
 import { colors } from "../../constants/colors";
+import { useAuth } from "../../contexts/AuthContext";
+import { getMyTrips, TripRequestError } from "../../services/trips";
+import {
+  getAvailableVehicles,
+  VehicleRequestError,
+} from "../../services/vehicles";
 import { styles } from "../../styles/globalStyles";
+
+const HOME_TRIP_LIMIT = 2;
+const HOME_VEHICLE_LIMIT = 2;
+
+const getTripLoadError = (error: unknown) => {
+  if (error instanceof TripRequestError) {
+    if (error.status === 403) {
+      return "Você não tem permissão para acessar as viagens.";
+    }
+
+    if (error.isConnectionError) {
+      return "Servidor indisponível. Tente novamente mais tarde.";
+    }
+  }
+
+  return "Não foi possível carregar as viagens.";
+};
+
+const getVehicleLoadError = (error: unknown) => {
+  if (error instanceof VehicleRequestError) {
+    if (error.status === 403) {
+      return "Você não tem permissão para acessar os veículos.";
+    }
+
+    if (error.isConnectionError) {
+      return "Servidor indisponível. Tente novamente mais tarde.";
+    }
+  }
+
+  return "Não foi possível carregar os veículos.";
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  const todayTrips = trips.filter((trip) => trip.period === "today");
-  const nextTrips = trips.filter((trip) => trip.period === "next");
-  const activeTrips = trips.filter(
-    (trip) => trip.status === "scheduled" || trip.status === "in_progress"
-  );
-  const nextTripsPreview = nextTrips.slice(0, 2);
+  const { signOut, token } = useAuth();
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [availableVehicles, setAvailableVehicles] = useState<Vehicle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [tripError, setTripError] = useState("");
+  const [vehicleError, setVehicleError] = useState("");
 
-  const availableVehicles = vehicles.filter(
-    (vehicle) => normalizeVehicleStatus(vehicle.status) === "available"
+  useFocusEffect(
+    useCallback(() => {
+      let isCurrent = true;
+
+      const loadHome = async () => {
+        if (!token) {
+          if (isCurrent) {
+            setTrips([]);
+            setAvailableVehicles([]);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        setIsLoading(true);
+        setTripError("");
+        setVehicleError("");
+
+        const [tripResult, vehicleResult] = await Promise.allSettled([
+          getMyTrips(token),
+          getAvailableVehicles(token),
+        ]);
+
+        const unauthorized = [tripResult, vehicleResult].some(
+          (result) =>
+            result.status === "rejected" &&
+            ((result.reason instanceof TripRequestError &&
+              result.reason.status === 401) ||
+              (result.reason instanceof VehicleRequestError &&
+                result.reason.status === 401))
+        );
+
+        if (unauthorized) {
+          await signOut();
+          return;
+        }
+
+        if (!isCurrent) {
+          return;
+        }
+
+        if (tripResult.status === "fulfilled") {
+          setTrips(sortTripsByStartDate(tripResult.value));
+        } else {
+          setTrips([]);
+          setTripError(getTripLoadError(tripResult.reason));
+        }
+
+        if (vehicleResult.status === "fulfilled") {
+          setAvailableVehicles(
+            vehicleResult.value.filter(
+              (vehicle) => normalizeVehicleStatus(vehicle.status) === "available"
+            )
+          );
+        } else {
+          setAvailableVehicles([]);
+          setVehicleError(getVehicleLoadError(vehicleResult.reason));
+        }
+
+        setIsLoading(false);
+      };
+
+      void loadHome();
+
+      return () => {
+        isCurrent = false;
+      };
+    }, [signOut, token])
   );
 
-  const openTripDetails = (id: number) => {
+  const todayTrips = useMemo(
+    () => trips.filter(isTripToday),
+    [trips]
+  );
+  const upcomingTrips = useMemo(
+    () => trips.filter(isUpcomingTrip),
+    [trips]
+  );
+  const todayTripsPreview = todayTrips.slice(0, HOME_TRIP_LIMIT);
+  const upcomingTripsPreview = upcomingTrips.slice(0, HOME_TRIP_LIMIT);
+  const visibleTripCount =
+    todayTripsPreview.length + upcomingTripsPreview.length;
+  const hasMoreTrips = trips.length > visibleTripCount;
+  const vehiclesPreview = availableVehicles.slice(0, HOME_VEHICLE_LIMIT);
+
+  const openTripDetails = (id: string) => {
     router.push({
       pathname: "/trips/[id]",
-      params: { id: String(id) },
+      params: { id },
     });
   };
 
@@ -60,62 +187,94 @@ export default function HomeScreen() {
         style={[styles.body, homeStyles.body]}
         contentContainerStyle={[
           styles.bodyContent,
+          isLoading && homeStyles.loadingContent,
           { paddingBottom: getTabBarContentPadding(insets.bottom) },
         ]}
       >
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Minhas Viagens</Text>
-        </View>
+        {isLoading ? (
+          <View style={homeStyles.stateContainer}>
+            <ActivityIndicator color={colors.primary} size="large" />
+            <Text style={homeStyles.stateText}>Carregando dados...</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Minhas Viagens</Text>
+              {hasMoreTrips && (
+                <TouchableOpacity onPress={() => router.push("/trips")}>
+                  <Text style={styles.sectionLink}>Ver todas</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-        <View style={styles.tripGroupHeader}>
-          <Text style={styles.tripGroupTitle}>HOJE</Text>
-          <Text style={styles.tripGroupCount}>
-            {todayTrips.length} viagem(ns)
-          </Text>
-        </View>
+            {tripError ? (
+              <Text style={homeStyles.errorText}>{tripError}</Text>
+            ) : (
+              <>
+                <View style={styles.tripGroupHeader}>
+                  <Text style={styles.tripGroupTitle}>HOJE</Text>
+                  <Text style={styles.tripGroupCount}>
+                    {todayTrips.length} viagem(ns)
+                  </Text>
+                </View>
 
-        {todayTrips.map((trip) => (
-          <TripCard
-            key={trip.id}
-            {...trip}
-            onPress={() => openTripDetails(trip.id)}
-          />
-        ))}
+                {todayTripsPreview.map((trip) => (
+                  <TripCard
+                    key={trip.id}
+                    trip={trip}
+                    onPress={() => openTripDetails(trip.id)}
+                  />
+                ))}
 
-        <View style={styles.tripGroupHeader}>
-          <Text style={styles.tripGroupTitle}>PRÓXIMAS</Text>
-          <TouchableOpacity onPress={() => router.push("/trips")}>
-            <Text style={styles.tripGroupCount}>
-              Ver todas ({activeTrips.length} viagens)
-            </Text>
-          </TouchableOpacity>
-        </View>
+                <View style={styles.tripGroupHeader}>
+                  <Text style={styles.tripGroupTitle}>PRÓXIMAS</Text>
+                  <Text style={styles.tripGroupCount}>
+                    {upcomingTrips.length} viagem(ns)
+                  </Text>
+                </View>
 
-        {nextTripsPreview.map((trip) => (
-          <TripCard
-            key={trip.id}
-            {...trip}
-            onPress={() => openTripDetails(trip.id)}
-          />
-        ))}
+                {upcomingTripsPreview.map((trip) => (
+                  <TripCard
+                    key={trip.id}
+                    trip={trip}
+                    onPress={() => openTripDetails(trip.id)}
+                  />
+                ))}
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Veículos recentes</Text>
+                {visibleTripCount === 0 && (
+                  <Text style={homeStyles.emptyText}>
+                    Nenhuma viagem para hoje ou para os próximos dias.
+                  </Text>
+                )}
+              </>
+            )}
 
-          <TouchableOpacity
-            onPress={() => router.push("/vehicles?filter=available")}
-          >
-            <Text style={styles.sectionLink}>
-              Ver todos ({availableVehicles.length} disponíveis)
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Veículos recentes</Text>
 
-        {availableVehicles.map((v) => (
-          <VehicleCard key={v.id} {...v} />
-        ))}
+              <TouchableOpacity
+                onPress={() => router.push("/vehicles?filter=available")}
+              >
+                <Text style={styles.sectionLink}>
+                  Ver todos ({availableVehicles.length} disponíveis)
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {vehicleError ? (
+              <Text style={homeStyles.errorText}>{vehicleError}</Text>
+            ) : vehiclesPreview.length > 0 ? (
+              vehiclesPreview.map((vehicle) => (
+                <VehicleCard key={String(vehicle.id)} {...vehicle} />
+              ))
+            ) : (
+              <Text style={homeStyles.emptyText}>
+                Nenhum veículo disponível no momento.
+              </Text>
+            )}
+          </>
+        )}
       </ScrollView>
-
     </SafeAreaView>
   );
 }
@@ -125,12 +284,37 @@ const homeStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.primary,
   },
-
   headerArea: {
     backgroundColor: colors.background,
   },
-
   body: {
     backgroundColor: colors.background,
+  },
+  loadingContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  stateContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  stateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    paddingVertical: 14,
+    textAlign: "center",
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+    paddingVertical: 14,
+    textAlign: "center",
   },
 });

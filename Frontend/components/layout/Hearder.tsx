@@ -10,8 +10,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchNotifications } from '../../services/notifications';
 
 export const Header = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const driverName = user?.name?.trim() || "Motorista";
+  const initials = driverName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
 
   useFocusEffect(
     useCallback(() => {
@@ -51,11 +57,11 @@ export const Header = () => {
     <View style={styles.header}>
       <View style={styles.headerTop}>
         <View style={styles.headerLeft}>
-          <Avatar initials="CM" />
+          <Avatar initials={initials || "M"} />
 
           <View>
             <Text style={styles.headerSubtitle}>Olá, motorista</Text>
-            <Text style={styles.headerName}>Carlos Mendes</Text>
+            <Text style={styles.headerName}>{driverName}</Text>
           </View>
         </View>
 
@@ -70,7 +76,7 @@ export const Header = () => {
       </Text>
 
 
-      <RequestButton onPress={() => console.log("Solicitar veículo")} />
+      <RequestButton />
     </View>
   );
 };

@@ -8,9 +8,12 @@ type Props = {
   onPress?: () => void;
 };
 
-export function RequestButton({ title = "Solicitar veículo", }: Props) {
+export function RequestButton({ title = "Solicitar veículo", onPress }: Props) {
   return (
-    <TouchableOpacity style={styles.button} onPress={() => router.push("/addrequest")}>
+    <TouchableOpacity
+      style={styles.button}
+      onPress={onPress ?? (() => router.push("/addrequest"))}
+    >
       <Text style={styles.icon}>＋</Text>
       <Text style={styles.text}>{title}</Text>
     </TouchableOpacity>

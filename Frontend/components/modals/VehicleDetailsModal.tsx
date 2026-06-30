@@ -69,7 +69,10 @@ export const VehicleDetailsModal = ({
     }
 
     onClose();
-    router.push("/addrequest");
+    router.push({
+      pathname: "/addrequest",
+      params: { vehicleId: String(vehicle.id) },
+    });
   };
 
   return (

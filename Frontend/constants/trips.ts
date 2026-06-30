@@ -1,85 +1,151 @@
+import type { Vehicle } from "./data";
+
+export type RouteStatus = "PENDING" | "READY" | "STARTED" | "FINISHED";
+
 export type TripStatus = "scheduled" | "in_progress" | "finished";
 
 export type Trip = {
-  id: number;
+  id: string;
+  requestId: string;
+  routeStatus: RouteStatus;
+  requestStatus: string;
+  description: string | null;
+  reportMarkdown: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  predictedStartDate: string;
+  predictedEndDate: string;
   destination: string;
-  date: string;
-  time: string;
-  fullDate: string;
-  startTime: string;
-  endTime: string;
-  startDateTime: string;
-  vehicle: string;
-  plate: string;
-  passengers: number;
-  purpose: string;
-  status: TripStatus;
-  period: "today" | "next";
+  reason: string;
+  vehicle: Vehicle & {
+    id: string;
+    model: string;
+    year: number;
+    odometer: number;
+    imageUrl: string | null;
+    type: "CAR" | "MOTORCYCLE" | "TRUCK" | "TRACTOR" | "VAN";
+  };
 };
 
-export const trips: Trip[] = [
-  {
-    id: 1,
-    destination: "Centro Administrativo",
-    date: "Hoje",
-    time: "08:00",
-    fullDate: "quinta-feira, 28 de maio",
-    startTime: "08:00",
-    endTime: "12:00",
-    startDateTime: "2026-05-28T08:00:00",
-    vehicle: "Fiat Strada",
-    plate: "BRA-2E19",
-    passengers: 2,
-    purpose: "Vistoria de obra na Rua das Flores",
-    status: "scheduled",
-    period: "today",
-  },
-  {
-    id: 2,
-    destination: "Almoxarifado Central",
-    date: "Hoje",
-    time: "14:00",
-    fullDate: "quinta-feira, 28 de maio",
-    startTime: "14:00",
-    endTime: "17:00",
-    startDateTime: "2026-05-28T14:00:00",
-    vehicle: "Toyota Hilux",
-    plate: "GOV-9P77",
-    passengers: 3,
-    purpose: "Retirada de materiais para manutenção predial",
-    status: "in_progress",
-    period: "today",
-  },
-  {
-    id: 3,
-    destination: "Bairro Jardim Sul",
-    date: "29 de mai.",
-    time: "09:00",
-    fullDate: "sexta-feira, 29 de maio",
-    startTime: "09:00",
-    endTime: "11:00",
-    startDateTime: "2026-05-29T09:00:00",
-    vehicle: "Renault Kangoo",
-    plate: "MUN-8H44",
-    passengers: 4,
-    purpose: "Visita técnica da equipe de infraestrutura",
-    status: "scheduled",
-    period: "next",
-  },
-  {
-    id: 4,
-    destination: "Distrito Industrial",
-    date: "30 de mai.",
-    time: "13:00",
-    fullDate: "sábado, 30 de maio",
-    startTime: "13:00",
-    endTime: "16:00",
-    startDateTime: "2026-05-30T13:00:00",
-    vehicle: "Fiat Strada",
-    plate: "BRA-2E19",
-    passengers: 2,
-    purpose: "Acompanhamento de serviço operacional",
-    status: "scheduled",
-    period: "next",
-  },
-];
+export const getTripStatus = (routeStatus: RouteStatus): TripStatus => {
+  if (routeStatus === "STARTED") {
+    return "in_progress";
+  }
+
+  if (routeStatus === "FINISHED") {
+    return "finished";
+  }
+
+  return "scheduled";
+};
+
+export const getTripStatusMeta = (routeStatus: RouteStatus) => {
+  switch (getTripStatus(routeStatus)) {
+    case "in_progress":
+      return {
+        label: "Em andamento",
+        bg: "#CCFBF1",
+        color: "#0F766E",
+      };
+    case "finished":
+      return {
+        label: "Finalizada",
+        bg: "#DCFCE7",
+        color: "#16A34A",
+      };
+    default:
+      return {
+        label: "Agendada",
+        bg: "#FEF3C7",
+        color: "#92400E",
+      };
+  }
+};
+
+export const parseTripDate = (value: string) => {
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const formatTripDate = (value: string) => {
+  const date = parseTripDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  const today = new Date();
+  const isToday =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate();
+
+  return isToday
+    ? "Hoje"
+    : date.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+      });
+};
+
+export const formatTripFullDate = (value: string) => {
+  const date = parseTripDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return date.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+export const formatTripTime = (value: string) => {
+  const date = parseTripDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+export const isTripToday = (trip: Trip) => {
+  const date = parseTripDate(trip.predictedStartDate);
+  const today = new Date();
+
+  return Boolean(
+    date &&
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate()
+  );
+};
+
+export const isUpcomingTrip = (trip: Trip) => {
+  const date = parseTripDate(trip.predictedStartDate);
+
+  if (!date) {
+    return false;
+  }
+
+  const tomorrow = new Date();
+  tomorrow.setHours(24, 0, 0, 0);
+
+  return date >= tomorrow;
+};
+
+export const sortTripsByStartDate = (trips: Trip[]) =>
+  [...trips].sort((first, second) => {
+    const firstDate = parseTripDate(first.predictedStartDate)?.getTime() ?? 0;
+    const secondDate = parseTripDate(second.predictedStartDate)?.getTime() ?? 0;
+
+    return firstDate - secondDate;
+  });
