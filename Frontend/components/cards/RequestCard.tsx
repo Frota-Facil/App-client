@@ -46,6 +46,7 @@ export const RequestCard: React.FC<Props> = ({
   };
 
   const statusStyle = getStatusStyle();
+
   const handleEditPress = (event: GestureResponderEvent) => {
     event.stopPropagation();
     onEditPress?.();
@@ -62,6 +63,7 @@ export const RequestCard: React.FC<Props> = ({
         <Text numberOfLines={1} style={styles.vehicleName}>
           {name}
         </Text>
+
         <Text style={styles.vehiclePlate}>{plate}</Text>
 
         <View style={cardStyles.metaRow}>
@@ -78,8 +80,12 @@ export const RequestCard: React.FC<Props> = ({
               source={require("../../assets/images/alfinetes.png")}
               style={cardStyles.metaIcon}
             />
-            <Text numberOfLines={2} style={cardStyles.metaText}>
-              {location}
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={cardStyles.metaText}
+            >
+              {location || "Não informado"}
             </Text>
           </View>
         </View>
@@ -123,52 +129,62 @@ const cardStyles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+
   metaRow: {
     alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
     marginTop: 6,
   },
+
   metaItem: {
     alignItems: "center",
     flexDirection: "row",
+    flexShrink: 0,
     marginRight: 12,
   },
+
   locationItem: {
     alignItems: "center",
+    flex: 1,
     flexDirection: "row",
-    flexShrink: 1,
+    minWidth: 0,
   },
+
   metaIcon: {
+    width: 20,
     height: 20,
     marginRight: 4,
-    width: 20,
   },
+
   metaText: {
-    color: "#6B7280",
     flexShrink: 1,
+    color: "#6B7280",
     fontSize: 12,
   },
+
   trailing: {
     alignItems: "flex-end",
     alignSelf: "stretch",
-    gap: 14,
     justifyContent: "flex-start",
+    gap: 14,
     marginLeft: 14,
     minWidth: 94,
   },
+
   trailingCentered: {
     justifyContent: "center",
   },
+
   editButton: {
     alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 32,
     justifyContent: "center",
     width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
+
   statusBadge: {
     alignSelf: "flex-end",
     borderRadius: 12,
@@ -176,6 +192,7 @@ const cardStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
+
   statusText: {
     fontSize: 12,
     fontWeight: "600",
