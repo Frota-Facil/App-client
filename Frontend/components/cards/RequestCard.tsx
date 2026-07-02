@@ -95,6 +95,7 @@ export const RequestCard: React.FC<Props> = ({
           <TouchableOpacity
             accessibilityLabel="Editar solicitação"
             activeOpacity={0.75}
+            hitSlop={8}
             onPress={handleEditPress}
             style={cardStyles.editButton}
           >
@@ -151,8 +152,10 @@ const cardStyles = StyleSheet.create({
   trailing: {
     alignItems: "flex-end",
     alignSelf: "stretch",
-    justifyContent: "space-between",
-    marginLeft: 12,
+    gap: 14,
+    justifyContent: "flex-start",
+    marginLeft: 14,
+    minWidth: 94,
   },
   trailingCentered: {
     justifyContent: "center",
@@ -169,6 +172,7 @@ const cardStyles = StyleSheet.create({
   statusBadge: {
     alignSelf: "flex-end",
     borderRadius: 12,
+    maxWidth: 104,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },

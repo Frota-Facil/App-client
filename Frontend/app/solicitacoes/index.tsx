@@ -33,6 +33,7 @@ import {
   RequestRequestError,
 } from "../../services/requests";
 import { baseCard, styles } from "../../styles/globalStyles";
+import { formatDateToPtBr, formatTimeToPtBr } from "../../utils/dateTime";
 
 type RequestFilter =
   | "Todas"
@@ -59,36 +60,6 @@ const filterStatus: Partial<Record<RequestFilter, RequestStatus>> = {
 type RequestDetailRowProps = {
   label: string;
   value: string;
-};
-
-const padDatePart = (value: number) => String(value).padStart(2, "0");
-
-const parseRequestDate = (value: string) => {
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const formatRequestDate = (value: string) => {
-  const date = parseRequestDate(value);
-
-  if (!date) {
-    return value;
-  }
-
-  return `${padDatePart(date.getDate())}/${padDatePart(
-    date.getMonth() + 1
-  )}/${date.getFullYear()}`;
-};
-
-const formatRequestTime = (value: string) => {
-  const date = parseRequestDate(value);
-
-  if (!date) {
-    return value;
-  }
-
-  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
 };
 
 const RequestDetailRow = ({ label, value }: RequestDetailRowProps) => (
@@ -187,15 +158,15 @@ export default function SolicitacoesScreen() {
         { label: "Placa", value: selectedRequest.vehicle.plate },
         {
           label: "Data",
-          value: formatRequestDate(selectedRequest.predictedStartDate),
+          value: formatDateToPtBr(selectedRequest.predictedStartDate),
         },
         {
           label: "Início",
-          value: formatRequestTime(selectedRequest.predictedStartDate),
+          value: formatTimeToPtBr(selectedRequest.predictedStartDate),
         },
         {
           label: "Término previsto",
-          value: formatRequestTime(selectedRequest.predictedEndDate),
+          value: formatTimeToPtBr(selectedRequest.predictedEndDate),
         },
         { label: "Destino/local", value: selectedRequest.destination },
         { label: "Finalidade", value: selectedRequest.reason },
@@ -253,7 +224,7 @@ export default function SolicitacoesScreen() {
         key={request.id}
         name={request.vehicle.model}
         plate={request.vehicle.plate}
-        date={formatRequestDate(request.predictedStartDate)}
+        date={formatDateToPtBr(request.predictedStartDate)}
         location={request.destination}
         status={getRequestStatusLabel(request.status)}
         onPress={() => setSelectedRequest(request)}

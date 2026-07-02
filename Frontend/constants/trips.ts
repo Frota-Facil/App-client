@@ -1,4 +1,10 @@
 import type { Vehicle } from "./data";
+import {
+  formatFullDateToPtBr,
+  formatShortDateToPtBr,
+  formatTimeToPtBr,
+  parseDateTime,
+} from "../utils/dateTime";
 
 export type RouteStatus = "PENDING" | "READY" | "STARTED" | "FINISHED";
 
@@ -62,11 +68,7 @@ export const getTripStatusMeta = (routeStatus: RouteStatus) => {
   }
 };
 
-export const parseTripDate = (value: string) => {
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-};
+export const parseTripDate = parseDateTime;
 
 export const formatTripDate = (value: string) => {
   const date = parseTripDate(value);
@@ -83,10 +85,7 @@ export const formatTripDate = (value: string) => {
 
   return isToday
     ? "Hoje"
-    : date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "short",
-      });
+    : formatShortDateToPtBr(date);
 };
 
 export const formatTripFullDate = (value: string) => {
@@ -96,12 +95,7 @@ export const formatTripFullDate = (value: string) => {
     return value;
   }
 
-  return date.toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  return formatFullDateToPtBr(date);
 };
 
 export const formatTripTime = (value: string) => {
@@ -111,11 +105,10 @@ export const formatTripTime = (value: string) => {
     return value;
   }
 
-  return date.toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatTimeToPtBr(date);
 };
+
+export const isTripFinished = (trip: Trip) => trip.routeStatus === "FINISHED";
 
 export const isTripToday = (trip: Trip) => {
   const date = parseTripDate(trip.predictedStartDate);

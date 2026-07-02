@@ -34,6 +34,13 @@ import {
 } from "../../services/requests";
 import { getVehicles, VehicleRequestError } from "../../services/vehicles";
 import { baseCard, SCREEN_PADDING } from "../../styles/globalStyles";
+import {
+  formatDateToPtBr,
+  getCalendarDateString,
+  getLocalDateTimeParts,
+  parseLocalDateTimeToDate,
+  parseLocalDateTimeToISOString,
+} from "../../utils/dateTime";
 
 const ACTION_PRIMARY = colors.primary;
 const CALENDAR_TEXT_PRIMARY = "#111827";
@@ -130,48 +137,8 @@ const calendarTheme = {
   textDayHeaderFontWeight: "600" as const,
 };
 
-const getCalendarDateString = (value = new Date()) => {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-const formatCalendarDate = (value: string) => {
-  const [year, month, day] = value.split("-");
-
-  if (!year || !month || !day) {
-    return value;
-  }
-
-  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
-};
-
-const getRequestDateTimeParts = (value: string) => {
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return null;
-  }
-
-  return {
-    date: getCalendarDateString(parsedDate),
-    time: `${String(parsedDate.getHours()).padStart(2, "0")}:${String(
-      parsedDate.getMinutes()
-    ).padStart(2, "0")}`,
-  };
-};
-
 const normalizeSearchValue = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-const buildRequestDate = (date: string, time: string) => {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
-};
 
 const isScheduleConflict = (message: string) => {
   const normalizedMessage = message.toLowerCase();
@@ -198,12 +165,15 @@ const getSaveErrorMessage = (error: unknown, isEditing: boolean) => {
       : "Você não tem permissão para realizar esta ação.";
   }
 
-  if (isScheduleConflict(error.message)) {
-    return "Este veículo já possui solicitação nesse horário.";
+  if (error.status === 400 || error.status === 409) {
+    return error.message.trim() || "Não foi possível salvar a solicitação.";
   }
 
-  if (error.status === 400 || error.status === 409) {
-    return error.message;
+  if (isScheduleConflict(error.message)) {
+    return (
+      error.message.trim() ||
+      "Este veículo já possui solicitação nesse horário."
+    );
   }
 
   return "Não foi possível salvar a solicitação.";
@@ -560,10 +530,10 @@ export default function MakeRequest() {
           return;
         }
 
-        const startParts = getRequestDateTimeParts(
+        const startParts = getLocalDateTimeParts(
           request.predictedStartDate
         );
-        const endParts = getRequestDateTimeParts(request.predictedEndDate);
+        const endParts = getLocalDateTimeParts(request.predictedEndDate);
 
         if (!startParts || !endParts) {
           setLoadedRequest(null);
@@ -749,12 +719,19 @@ export default function MakeRequest() {
       return;
     }
 
-    const predictedStartDate = buildRequestDate(date, startTime);
-    const predictedEndDate = buildRequestDate(date, endTime);
+    const predictedStartDate = parseLocalDateTimeToDate(date, startTime);
+    const predictedEndDate = parseLocalDateTimeToDate(date, endTime);
+    const predictedStartDateIso = parseLocalDateTimeToISOString(
+      date,
+      startTime
+    );
+    const predictedEndDateIso = parseLocalDateTimeToISOString(date, endTime);
 
     if (
-      Number.isNaN(predictedStartDate.getTime()) ||
-      Number.isNaN(predictedEndDate.getTime())
+      !predictedStartDate ||
+      !predictedEndDate ||
+      !predictedStartDateIso ||
+      !predictedEndDateIso
     ) {
       setFormError("Informe uma data e horários válidos.");
       return;
@@ -775,8 +752,8 @@ export default function MakeRequest() {
     try {
       const requestData = {
         vehicleId: String(selectedVehicle.id),
-        predictedStartDate: predictedStartDate.toISOString(),
-        predictedEndDate: predictedEndDate.toISOString(),
+        predictedStartDate: predictedStartDateIso,
+        predictedEndDate: predictedEndDateIso,
         destination: trimmedDestination,
         reason: trimmedReason,
       };
@@ -844,7 +821,7 @@ export default function MakeRequest() {
               !date && styles.pickerPlaceholderText,
             ]}
           >
-            {date ? formatCalendarDate(date) : "dd/mm/aaaa"}
+            {date ? formatDateToPtBr(date) : "dd/mm/aaaa"}
           </Text>
         </TouchableOpacity>
         <Modal

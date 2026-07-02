@@ -18,6 +18,7 @@ import { VehicleCard } from "../../components/cards/VehicleCard";
 import { TripCard } from "../../components/cards/TripCard";
 
 import {
+  isTripFinished,
   isTripToday,
   isUpcomingTrip,
   sortTripsByStartDate,
@@ -43,7 +44,7 @@ const getTripLoadError = (error: unknown) => {
     }
 
     if (error.isConnectionError) {
-      return "Servidor indisponível. Tente novamente mais tarde.";
+      return "Não foi possível conectar ao servidor.";
     }
   }
 
@@ -57,7 +58,7 @@ const getVehicleLoadError = (error: unknown) => {
     }
 
     if (error.isConnectionError) {
-      return "Servidor indisponível. Tente novamente mais tarde.";
+      return "Não foi possível conectar ao servidor.";
     }
   }
 
@@ -116,7 +117,11 @@ export default function HomeScreen() {
         }
 
         if (tripResult.status === "fulfilled") {
-          setTrips(sortTripsByStartDate(tripResult.value));
+          setTrips(
+            sortTripsByStartDate(
+              tripResult.value.filter((trip) => !isTripFinished(trip))
+            )
+          );
         } else {
           setTrips([]);
           setTripError(getTripLoadError(tripResult.reason));
@@ -227,6 +232,14 @@ export default function HomeScreen() {
                         onPress={() => openTripDetails(trip.id)}
                       />
                     ))}
+
+                    {todayTripsPreview.length === 0 && (
+                      <View style={homeStyles.emptyBlock}>
+                        <Text style={homeStyles.emptyText}>
+                          Nenhuma viagem para hoje.
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   <View style={homeStyles.tripGroup}>
@@ -249,15 +262,15 @@ export default function HomeScreen() {
                         onPress={() => openTripDetails(trip.id)}
                       />
                     ))}
-                  </View>
 
-                  {visibleTripCount === 0 && (
-                    <View style={homeStyles.emptyBlock}>
-                      <Text style={homeStyles.emptyText}>
-                        Nenhuma viagem para hoje ou para os próximos dias.
-                      </Text>
-                    </View>
-                  )}
+                    {upcomingTripsPreview.length === 0 && (
+                      <View style={homeStyles.emptyBlock}>
+                        <Text style={homeStyles.emptyText}>
+                          Nenhuma próxima viagem.
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </>
               )}
             </View>
@@ -313,7 +326,7 @@ const homeStyles = StyleSheet.create({
     marginBottom: 26,
   },
   vehicleSection: {
-    marginTop: 2,
+    marginTop: 8,
     marginBottom: 0,
   },
   sectionHeader: {
@@ -321,7 +334,7 @@ const homeStyles = StyleSheet.create({
     marginBottom: 12,
   },
   tripGroup: {
-    marginBottom: 10,
+    marginBottom: 18,
   },
   tripGroupHeader: {
     marginTop: 0,

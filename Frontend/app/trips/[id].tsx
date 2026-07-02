@@ -41,6 +41,8 @@ import {
 } from "../../styles/globalStyles";
 
 const TRIP_ACTION_FOOTER_HEIGHT = 86;
+const START_WINDOW_ERROR_MESSAGE =
+  "A viagem só pode ser iniciada até 15 minutos antes do horário previsto.";
 
 const getLoadErrorMessage = (error: unknown) => {
   if (error instanceof TripRequestError) {
@@ -53,7 +55,7 @@ const getLoadErrorMessage = (error: unknown) => {
     }
 
     if (error.isConnectionError) {
-      return "Servidor indisponível. Tente novamente mais tarde.";
+      return "Não foi possível conectar ao servidor.";
     }
   }
 
@@ -70,7 +72,25 @@ const getActionErrorMessage = (
     }
 
     if (error.isConnectionError) {
-      return "Servidor indisponível. Tente novamente mais tarde.";
+      return "Não foi possível conectar ao servidor.";
+    }
+
+    if (
+      action === "iniciar" &&
+      (error.status === 400 || error.status === 409)
+    ) {
+      const message = error.message.trim();
+
+      if (
+        message &&
+        /15|minut|antes|hor.rio|iniciad|iniciar|permitid|previst/i.test(
+          message
+        )
+      ) {
+        return message.includes("15") ? message : START_WINDOW_ERROR_MESSAGE;
+      }
+
+      return message || START_WINDOW_ERROR_MESSAGE;
     }
 
     if (error.message.trim()) {
@@ -224,6 +244,7 @@ export default function TripDetailsScreen() {
       setShowFinishModal(false);
       setDescription("");
       setActionError("");
+      router.replace("/trips");
     } catch (error) {
       if (error instanceof TripRequestError && error.status === 401) {
         await signOut();

@@ -14,7 +14,11 @@ import { TripCard } from "../../components/cards/TripCard";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
-import { sortTripsByStartDate, type Trip } from "../../constants/trips";
+import {
+  isTripFinished,
+  sortTripsByStartDate,
+  type Trip,
+} from "../../constants/trips";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMyTrips, TripRequestError } from "../../services/trips";
 import { SCREEN_PADDING, styles } from "../../styles/globalStyles";
@@ -26,7 +30,7 @@ const getLoadErrorMessage = (error: unknown) => {
     }
 
     if (error.isConnectionError) {
-      return "Servidor indisponível. Tente novamente mais tarde.";
+      return "Não foi possível conectar ao servidor.";
     }
   }
 
@@ -60,7 +64,11 @@ export default function TripsScreen() {
           const nextTrips = await getMyTrips(token);
 
           if (isCurrent) {
-            setTrips(sortTripsByStartDate(nextTrips));
+            setTrips(
+              sortTripsByStartDate(
+                nextTrips.filter((trip) => !isTripFinished(trip))
+              )
+            );
           }
         } catch (error) {
           if (error instanceof TripRequestError && error.status === 401) {

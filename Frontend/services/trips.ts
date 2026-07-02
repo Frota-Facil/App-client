@@ -15,11 +15,20 @@ export class TripRequestError extends Error {
 
 const getResponseMessage = async (response: Response, fallback: string) => {
   try {
-    const body = (await response.json()) as { message?: unknown };
+    const body = (await response.json()) as {
+      message?: unknown;
+      error?: unknown;
+    };
 
-    return typeof body.message === "string" && body.message.trim()
-      ? body.message
-      : fallback;
+    if (typeof body.message === "string" && body.message.trim()) {
+      return body.message;
+    }
+
+    if (typeof body.error === "string" && body.error.trim()) {
+      return body.error;
+    }
+
+    return fallback;
   } catch {
     return fallback;
   }
