@@ -11,7 +11,7 @@ import { router } from "expo-router";
 import { Platform } from "react-native";
 
 import { login } from "../services/auth";
-import { savePushToken } from "../services/pushTokens";
+import { PushTokenRequestError, savePushToken } from "../services/pushTokens";
 import type { PushTokenPlatform } from "../services/pushTokens";
 import {
   clearSession,
@@ -85,6 +85,17 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
         console.log("Expo Push Token salvo no core-service:", savedPushToken);
       } catch (error) {
+        if (error instanceof PushTokenRequestError) {
+          console.warn("Erro ao salvar push token", {
+            url: error.url,
+            status: error.status,
+            responseBody: error.responseBody,
+            hasToken: Boolean(pushToken),
+            hasAuthToken: Boolean(nextSession.token),
+          });
+          return;
+        }
+
         console.warn("Erro ao salvar Expo Push Token no core-service:", error);
       }
     } catch (error) {

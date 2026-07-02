@@ -43,7 +43,7 @@ export const RequestCard: React.FC<Props> = ({
       onPress={onPress}
       style={styles.requestCard}
     >
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, marginRight: 10, minWidth: 0 }}>
         <Text style={styles.vehicleName}>{name}</Text>
         <Text style={styles.vehiclePlate}>{plate}</Text>
 
@@ -53,10 +53,16 @@ export const RequestCard: React.FC<Props> = ({
             flexDirection: "row",
             alignItems: "center",
             marginTop: 6,
-            flexWrap: "wrap",
           }}
         > 
-          <View style={{ flexDirection: "row", alignItems: "center", marginRight: 12 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              flexShrink: 0,
+              marginRight: 12,
+            }}
+          >
             <Image
               source={require("../../assets/images/calendario.png")}
               style={{ width: 20, height: 20, marginRight: 4 }}
@@ -65,13 +71,24 @@ export const RequestCard: React.FC<Props> = ({
 
             <Text style={{ marginHorizontal: 6, color: "#9CA3AF" }}></Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View
+            style={{
+              flex: 1,
+              minWidth: 0,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
             <Image
               source={require("../../assets/images/alfinetes.png")}
               style={{ width: 20, height: 20, marginRight: 4 }}
             />
-            <Text style={{ fontSize: 12, color: "#6B7280"  }}>
-              {location}
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ flex: 1, minWidth: 0, fontSize: 12, color: "#6B7280" }}
+            >
+              {location || "Não informado"}
             </Text>
           </View>
         </View>
