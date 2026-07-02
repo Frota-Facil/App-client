@@ -24,10 +24,13 @@ import {
 import { PageHeader } from "../../components/layout/PageHeader";
 import { colors } from "../../constants/colors";
 import { getVehicleDisplayName, type Vehicle } from "../../constants/data";
+import type { VehicleRequest } from "../../constants/requests";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   createMyRequest,
+  getMyRequests,
   RequestRequestError,
+  updateMyRequest,
 } from "../../services/requests";
 import { getVehicles, VehicleRequestError } from "../../services/vehicles";
 import { baseCard, SCREEN_PADDING } from "../../styles/globalStyles";
@@ -54,6 +57,9 @@ const INFINITE_HOURS = buildInfiniteTimeOptions(HOURS);
 const INFINITE_MINUTES = buildInfiniteTimeOptions(MINUTES);
 
 type TimeTarget = "start" | "end";
+
+const getParamValue = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] : value;
 
 type TimeOptionColumnProps = {
   title: string;
@@ -142,6 +148,21 @@ const formatCalendarDate = (value: string) => {
   return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
 };
 
+const getRequestDateTimeParts = (value: string) => {
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return {
+    date: getCalendarDateString(parsedDate),
+    time: `${String(parsedDate.getHours()).padStart(2, "0")}:${String(
+      parsedDate.getMinutes()
+    ).padStart(2, "0")}`,
+  };
+};
+
 const normalizeSearchValue = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -162,7 +183,7 @@ const isScheduleConflict = (message: string) => {
   );
 };
 
-const getCreateErrorMessage = (error: unknown) => {
+const getSaveErrorMessage = (error: unknown, isEditing: boolean) => {
   if (!(error instanceof RequestRequestError)) {
     return "Não foi possível salvar a solicitação.";
   }
@@ -172,18 +193,40 @@ const getCreateErrorMessage = (error: unknown) => {
   }
 
   if (error.status === 403) {
-    return "Você não tem permissão para realizar esta ação.";
+    return isEditing
+      ? "Você não tem permissão para editar esta solicitação."
+      : "Você não tem permissão para realizar esta ação.";
   }
 
-  if (error.status === 409 || isScheduleConflict(error.message)) {
+  if (isScheduleConflict(error.message)) {
     return "Este veículo já possui solicitação nesse horário.";
   }
 
-  if (error.status === 400) {
+  if (error.status === 400 || error.status === 409) {
     return error.message;
   }
 
   return "Não foi possível salvar a solicitação.";
+};
+
+const getEditLoadErrorMessage = (error: unknown) => {
+  if (!(error instanceof RequestRequestError)) {
+    return "Não foi possível carregar a solicitação.";
+  }
+
+  if (error.isConnectionError) {
+    return "Não foi possível conectar ao servidor.";
+  }
+
+  if (error.status === 403) {
+    return "Você não tem permissão para editar esta solicitação.";
+  }
+
+  if (error.message.trim()) {
+    return error.message;
+  }
+
+  return "Não foi possível carregar a solicitação.";
 };
 
 const getTimeParts = (value?: string | null) => {
@@ -317,12 +360,19 @@ function TimeOptionColumn({
 
 export default function MakeRequest() {
   const { signOut, token } = useAuth();
-  const { vehicleId: vehicleIdParam } = useLocalSearchParams<{
+  const {
+    mode: modeParam,
+    requestId: requestIdParam,
+    vehicleId: vehicleIdParam,
+  } = useLocalSearchParams<{
+    mode?: string | string[];
+    requestId?: string | string[];
     vehicleId?: string | string[];
   }>();
-  const routeVehicleId = Array.isArray(vehicleIdParam)
-    ? vehicleIdParam[0]
-    : vehicleIdParam;
+  const routeMode = getParamValue(modeParam);
+  const routeRequestId = getParamValue(requestIdParam);
+  const routeVehicleId = getParamValue(vehicleIdParam);
+  const isEditMode = routeMode === "edit" || Boolean(routeRequestId);
   const [date, setDate] = useState<string | null>(null);
   const [selectedDateString, setSelectedDateString] = useState<string | null>(
     null
@@ -340,6 +390,11 @@ export default function MakeRequest() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [fleetVehicles, setFleetVehicles] = useState<Vehicle[]>([]);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [loadedRequest, setLoadedRequest] = useState<VehicleRequest | null>(
+    null
+  );
+  const [isLoadingRequest, setIsLoadingRequest] = useState(isEditMode);
+  const [requestLoadError, setRequestLoadError] = useState("");
   const [vehicleError, setVehicleError] = useState("");
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -378,6 +433,21 @@ export default function MakeRequest() {
 
   const currentCalendarDate =
     selectedDateString ?? date ?? getCalendarDateString();
+  const screenTitle = isEditMode ? "Editar solicitação" : "Nova solicitação";
+  const screenSubtitle = isEditMode
+    ? "Atualize os dados da viagem"
+    : "Preencha os dados da viagem";
+  const saveButtonLabel = isEditMode ? "Salvar alterações" : "Salvar";
+  const canSubmitRequest =
+    !isEditMode || loadedRequest?.status === "PENDING";
+  const isRequestStateVisible =
+    isEditMode &&
+    (isLoadingRequest || (Boolean(requestLoadError) && !loadedRequest));
+  const isSaveDisabled =
+    isSubmitting ||
+    isLoadingVehicles ||
+    Boolean(vehicleError) ||
+    !canSubmitRequest;
   const markedDates = selectedDateString
     ? {
         [selectedDateString]: {
@@ -448,7 +518,106 @@ export default function MakeRequest() {
   }, [signOut, token]);
 
   useEffect(() => {
+    let isCurrent = true;
+
+    const loadEditableRequest = async () => {
+      if (!isEditMode) {
+        setLoadedRequest(null);
+        setRequestLoadError("");
+        setIsLoadingRequest(false);
+        return;
+      }
+
+      if (!routeRequestId) {
+        setLoadedRequest(null);
+        setRequestLoadError("Solicitação não encontrada.");
+        setIsLoadingRequest(false);
+        return;
+      }
+
+      if (!token) {
+        setLoadedRequest(null);
+        setIsLoadingRequest(false);
+        router.replace("/");
+        return;
+      }
+
+      setIsLoadingRequest(true);
+      setRequestLoadError("");
+      setFormError("");
+
+      try {
+        const requests = await getMyRequests(token);
+        const request = requests.find((item) => item.id === routeRequestId);
+
+        if (!isCurrent) {
+          return;
+        }
+
+        if (!request) {
+          setLoadedRequest(null);
+          setRequestLoadError("Solicitação não encontrada.");
+          return;
+        }
+
+        const startParts = getRequestDateTimeParts(
+          request.predictedStartDate
+        );
+        const endParts = getRequestDateTimeParts(request.predictedEndDate);
+
+        if (!startParts || !endParts) {
+          setLoadedRequest(null);
+          setRequestLoadError(
+            "Não foi possível carregar os horários da solicitação."
+          );
+          return;
+        }
+
+        const requestVehicle: Vehicle = request.vehicle;
+        const displayName = getVehicleDisplayName(requestVehicle);
+
+        setLoadedRequest(request);
+        setDate(startParts.date);
+        setSelectedDateString(startParts.date);
+        setStartTime(startParts.time);
+        setEndTime(endParts.time);
+        setSelectedVehicle(requestVehicle);
+        setVehicleSearch(`${displayName} — ${requestVehicle.plate}`);
+        setShowVehicleOptions(false);
+        setDestination(request.destination);
+        setReason(request.reason);
+        setFormError(
+          request.status === "PENDING"
+            ? ""
+            : "Apenas solicitações pendentes podem ser editadas."
+        );
+      } catch (error) {
+        if (error instanceof RequestRequestError && error.status === 401) {
+          await signOut();
+          return;
+        }
+
+        if (isCurrent) {
+          setLoadedRequest(null);
+          setRequestLoadError(getEditLoadErrorMessage(error));
+        }
+      } finally {
+        if (isCurrent) {
+          setIsLoadingRequest(false);
+        }
+      }
+    };
+
+    void loadEditableRequest();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [isEditMode, routeRequestId, signOut, token]);
+
+  useEffect(() => {
     if (
+      isEditMode ||
       isLoadingVehicles ||
       !routeVehicleId ||
       appliedVehicleId.current === routeVehicleId
@@ -473,7 +642,7 @@ export default function MakeRequest() {
     setVehicleSearch(`${displayName} — ${vehicle.plate}`);
     setShowVehicleOptions(false);
     setFormError("");
-  }, [fleetVehicles, isLoadingVehicles, routeVehicleId]);
+  }, [fleetVehicles, isEditMode, isLoadingVehicles, routeVehicleId]);
 
   const openDatePicker = () => {
     setSelectedDateString(date ?? getCalendarDateString());
@@ -553,6 +722,18 @@ export default function MakeRequest() {
 
     setFormError("");
 
+    if (isEditMode) {
+      if (!routeRequestId || !loadedRequest) {
+        setFormError("Solicitação não encontrada.");
+        return;
+      }
+
+      if (loadedRequest.status !== "PENDING") {
+        setFormError("Apenas solicitações pendentes podem ser editadas.");
+        return;
+      }
+    }
+
     const trimmedDestination = destination.trim();
     const trimmedReason = reason.trim();
 
@@ -592,15 +773,26 @@ export default function MakeRequest() {
     setIsSubmitting(true);
 
     try {
-      await createMyRequest(token, {
+      const requestData = {
         vehicleId: String(selectedVehicle.id),
         predictedStartDate: predictedStartDate.toISOString(),
         predictedEndDate: predictedEndDate.toISOString(),
         destination: trimmedDestination,
         reason: trimmedReason,
-      });
+      };
 
-      Alert.alert("Solicitação criada", "Sua solicitação foi enviada com sucesso.");
+      if (isEditMode && routeRequestId) {
+        await updateMyRequest(token, routeRequestId, requestData);
+      } else {
+        await createMyRequest(token, requestData);
+      }
+
+      Alert.alert(
+        isEditMode ? "Solicitação atualizada" : "Solicitação criada",
+        isEditMode
+          ? "Sua solicitação foi atualizada com sucesso."
+          : "Sua solicitação foi enviada com sucesso."
+      );
       router.replace("/solicitacoes");
     } catch (error) {
       if (error instanceof RequestRequestError && error.status === 401) {
@@ -608,7 +800,7 @@ export default function MakeRequest() {
         return;
       }
 
-      setFormError(getCreateErrorMessage(error));
+      setFormError(getSaveErrorMessage(error, isEditMode));
     } finally {
       setIsSubmitting(false);
     }
@@ -617,16 +809,28 @@ export default function MakeRequest() {
   return (
     <SafeAreaView style={styles.container}>
       <PageHeader
-        title="Nova solicitação"
-        subtitle="Preencha os dados da viagem"
+        title={screenTitle}
+        subtitle={screenSubtitle}
         showBackButton
         onBackPress={() => router.back()}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.body}
-        keyboardShouldPersistTaps="handled"
-      >
+      {isRequestStateVisible ? (
+        <View style={styles.requestState}>
+          {isLoadingRequest ? (
+            <ActivityIndicator color={colors.primary} size="large" />
+          ) : null}
+          <Text style={styles.requestStateText}>
+            {isLoadingRequest
+              ? "Carregando solicitação..."
+              : requestLoadError}
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* DATA */}
         <Text style={styles.label}>Data de uso</Text>
         <TouchableOpacity
@@ -889,23 +1093,23 @@ export default function MakeRequest() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            disabled={isSubmitting || isLoadingVehicles || Boolean(vehicleError)}
+            disabled={isSaveDisabled}
             style={[
               styles.button,
               styles.saveButton,
-              (isSubmitting || isLoadingVehicles || Boolean(vehicleError)) &&
-                styles.disabledButton,
+              isSaveDisabled && styles.disabledButton,
             ]}
             onPress={handleSave}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.saveText}>Salvar</Text>
+              <Text style={styles.saveText}>{saveButtonLabel}</Text>
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -920,6 +1124,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_PADDING,
     paddingTop: 20,
     paddingBottom: 28,
+  },
+
+  requestState: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: SCREEN_PADDING,
+  },
+
+  requestStateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
   },
 
   label: {

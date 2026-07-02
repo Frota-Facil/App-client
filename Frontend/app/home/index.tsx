@@ -23,10 +23,7 @@ import {
   sortTripsByStartDate,
   type Trip,
 } from "../../constants/trips";
-import {
-  normalizeVehicleStatus,
-  type Vehicle,
-} from "../../constants/data";
+import type { Vehicle } from "../../constants/data";
 import { colors } from "../../constants/colors";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMyTrips, TripRequestError } from "../../services/trips";
@@ -126,11 +123,7 @@ export default function HomeScreen() {
         }
 
         if (vehicleResult.status === "fulfilled") {
-          setAvailableVehicles(
-            vehicleResult.value.filter(
-              (vehicle) => normalizeVehicleStatus(vehicle.status) === "available"
-            )
-          );
+          setAvailableVehicles(vehicleResult.value);
         } else {
           setAvailableVehicles([]);
           setVehicleError(getVehicleLoadError(vehicleResult.reason));
@@ -188,7 +181,7 @@ export default function HomeScreen() {
         contentContainerStyle={[
           styles.bodyContent,
           isLoading && homeStyles.loadingContent,
-          { paddingBottom: getTabBarContentPadding(insets.bottom) },
+          { paddingBottom: getTabBarContentPadding(insets.bottom) + 24 },
         ]}
       >
         {isLoading ? (
@@ -198,80 +191,106 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Minhas Viagens</Text>
-              {hasMoreTrips && (
-                <TouchableOpacity onPress={() => router.push("/trips")}>
-                  <Text style={styles.sectionLink}>Ver todas</Text>
-                </TouchableOpacity>
+            <View style={homeStyles.section}>
+              <View style={[styles.sectionHeader, homeStyles.sectionHeader]}>
+                <Text style={styles.sectionTitle}>Minhas Viagens</Text>
+                {hasMoreTrips && (
+                  <TouchableOpacity onPress={() => router.push("/trips")}>
+                    <Text style={styles.sectionLink}>Ver todas</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {tripError ? (
+                <View style={homeStyles.stateBlock}>
+                  <Text style={homeStyles.errorText}>{tripError}</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={homeStyles.tripGroup}>
+                    <View
+                      style={[
+                        styles.tripGroupHeader,
+                        homeStyles.tripGroupHeader,
+                      ]}
+                    >
+                      <Text style={styles.tripGroupTitle}>HOJE</Text>
+                      <Text style={styles.tripGroupCount}>
+                        {todayTrips.length} viagem(ns)
+                      </Text>
+                    </View>
+
+                    {todayTripsPreview.map((trip) => (
+                      <TripCard
+                        key={trip.id}
+                        trip={trip}
+                        onPress={() => openTripDetails(trip.id)}
+                      />
+                    ))}
+                  </View>
+
+                  <View style={homeStyles.tripGroup}>
+                    <View
+                      style={[
+                        styles.tripGroupHeader,
+                        homeStyles.tripGroupHeader,
+                      ]}
+                    >
+                      <Text style={styles.tripGroupTitle}>PRÓXIMAS</Text>
+                      <Text style={styles.tripGroupCount}>
+                        {upcomingTrips.length} viagem(ns)
+                      </Text>
+                    </View>
+
+                    {upcomingTripsPreview.map((trip) => (
+                      <TripCard
+                        key={trip.id}
+                        trip={trip}
+                        onPress={() => openTripDetails(trip.id)}
+                      />
+                    ))}
+                  </View>
+
+                  {visibleTripCount === 0 && (
+                    <View style={homeStyles.emptyBlock}>
+                      <Text style={homeStyles.emptyText}>
+                        Nenhuma viagem para hoje ou para os próximos dias.
+                      </Text>
+                    </View>
+                  )}
+                </>
               )}
             </View>
 
-            {tripError ? (
-              <Text style={homeStyles.errorText}>{tripError}</Text>
-            ) : (
-              <>
-                <View style={styles.tripGroupHeader}>
-                  <Text style={styles.tripGroupTitle}>HOJE</Text>
-                  <Text style={styles.tripGroupCount}>
-                    {todayTrips.length} viagem(ns)
+            <View style={[homeStyles.section, homeStyles.vehicleSection]}>
+              <View style={[styles.sectionHeader, homeStyles.sectionHeader]}>
+                <Text style={styles.sectionTitle}>Veículos recentes</Text>
+
+                <TouchableOpacity
+                  onPress={() => router.push("/vehicles?filter=available")}
+                >
+                  <Text style={styles.sectionLink}>
+                    Ver todos ({availableVehicles.length} disponíveis)
                   </Text>
+                </TouchableOpacity>
+              </View>
+
+              {vehicleError ? (
+                <View style={homeStyles.stateBlock}>
+                  <Text style={homeStyles.errorText}>{vehicleError}</Text>
                 </View>
-
-                {todayTripsPreview.map((trip) => (
-                  <TripCard
-                    key={trip.id}
-                    trip={trip}
-                    onPress={() => openTripDetails(trip.id)}
-                  />
-                ))}
-
-                <View style={styles.tripGroupHeader}>
-                  <Text style={styles.tripGroupTitle}>PRÓXIMAS</Text>
-                  <Text style={styles.tripGroupCount}>
-                    {upcomingTrips.length} viagem(ns)
-                  </Text>
-                </View>
-
-                {upcomingTripsPreview.map((trip) => (
-                  <TripCard
-                    key={trip.id}
-                    trip={trip}
-                    onPress={() => openTripDetails(trip.id)}
-                  />
-                ))}
-
-                {visibleTripCount === 0 && (
+              ) : vehiclesPreview.length > 0 ? (
+                vehiclesPreview.map((vehicle) => (
+                  <VehicleCard key={String(vehicle.id)} {...vehicle} />
+                ))
+              ) : (
+                <View style={homeStyles.emptyBlock}>
                   <Text style={homeStyles.emptyText}>
-                    Nenhuma viagem para hoje ou para os próximos dias.
+                    Nenhum veículo disponível no momento.
                   </Text>
-                )}
-              </>
-            )}
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Veículos recentes</Text>
-
-              <TouchableOpacity
-                onPress={() => router.push("/vehicles?filter=available")}
-              >
-                <Text style={styles.sectionLink}>
-                  Ver todos ({availableVehicles.length} disponíveis)
-                </Text>
-              </TouchableOpacity>
+                </View>
+              )}
             </View>
-
-            {vehicleError ? (
-              <Text style={homeStyles.errorText}>{vehicleError}</Text>
-            ) : vehiclesPreview.length > 0 ? (
-              vehiclesPreview.map((vehicle) => (
-                <VehicleCard key={String(vehicle.id)} {...vehicle} />
-              ))
-            ) : (
-              <Text style={homeStyles.emptyText}>
-                Nenhum veículo disponível no momento.
-              </Text>
-            )}
           </>
         )}
       </ScrollView>
@@ -290,6 +309,24 @@ const homeStyles = StyleSheet.create({
   body: {
     backgroundColor: colors.background,
   },
+  section: {
+    marginBottom: 26,
+  },
+  vehicleSection: {
+    marginTop: 2,
+    marginBottom: 0,
+  },
+  sectionHeader: {
+    marginTop: 0,
+    marginBottom: 12,
+  },
+  tripGroup: {
+    marginBottom: 10,
+  },
+  tripGroupHeader: {
+    marginTop: 0,
+    marginBottom: 8,
+  },
   loadingContent: {
     flexGrow: 1,
     justifyContent: "center",
@@ -305,16 +342,31 @@ const homeStyles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 12,
   },
+  emptyBlock: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 18,
+  },
+  stateBlock: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 18,
+  },
   emptyText: {
     color: colors.textSecondary,
     fontSize: 14,
-    paddingVertical: 14,
     textAlign: "center",
   },
   errorText: {
     color: colors.danger,
     fontSize: 14,
-    paddingVertical: 14,
     textAlign: "center",
   },
 });

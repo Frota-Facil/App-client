@@ -1,7 +1,16 @@
 import React from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type GestureResponderEvent,
+} from "react-native";
+import { Pencil } from "lucide-react-native";
 
 import type { RequestStatusLabel } from "../../constants/requests";
+import { colors } from "../../constants/colors";
 import { styles } from "../../styles/globalStyles";
 
 type Props = {
@@ -11,6 +20,7 @@ type Props = {
   location: string;
   status: RequestStatusLabel;
   onPress?: () => void;
+  onEditPress?: () => void;
 };
 
 export const RequestCard: React.FC<Props> = ({
@@ -20,6 +30,7 @@ export const RequestCard: React.FC<Props> = ({
   location,
   status,
   onPress,
+  onEditPress,
 }) => {
   const getStatusStyle = () => {
     switch (status) {
@@ -35,6 +46,10 @@ export const RequestCard: React.FC<Props> = ({
   };
 
   const statusStyle = getStatusStyle();
+  const handleEditPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    onEditPress?.();
+  };
 
   return (
     <TouchableOpacity
@@ -43,55 +58,122 @@ export const RequestCard: React.FC<Props> = ({
       onPress={onPress}
       style={styles.requestCard}
     >
-      <View style={{ flex: 1 }}>
-        <Text style={styles.vehicleName}>{name}</Text>
+      <View style={cardStyles.content}>
+        <Text numberOfLines={1} style={styles.vehicleName}>
+          {name}
+        </Text>
         <Text style={styles.vehiclePlate}>{plate}</Text>
 
-        {/* DATA + LOCAL */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginTop: 6,
-            flexWrap: "wrap",
-          }}
-        > 
-          <View style={{ flexDirection: "row", alignItems: "center", marginRight: 12 }}>
+        <View style={cardStyles.metaRow}>
+          <View style={cardStyles.metaItem}>
             <Image
               source={require("../../assets/images/calendario.png")}
-              style={{ width: 20, height: 20, marginRight: 4 }}
+              style={cardStyles.metaIcon}
             />
-            <Text style={{ fontSize: 12, color: "#6B7280" }}>{date}</Text>
-
-            <Text style={{ marginHorizontal: 6, color: "#9CA3AF" }}></Text>
+            <Text style={cardStyles.metaText}>{date}</Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
+
+          <View style={cardStyles.locationItem}>
             <Image
               source={require("../../assets/images/alfinetes.png")}
-              style={{ width: 20, height: 20, marginRight: 4 }}
+              style={cardStyles.metaIcon}
             />
-            <Text style={{ fontSize: 12, color: "#6B7280"  }}>
+            <Text numberOfLines={2} style={cardStyles.metaText}>
               {location}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* STATUS */}
       <View
-        style={{
-          backgroundColor: statusStyle.backgroundColor,
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          borderRadius: 12,
-          alignSelf: "center",
-          
-        }}
+        style={[
+          cardStyles.trailing,
+          !onEditPress && cardStyles.trailingCentered,
+        ]}
       >
-        <Text style={{ color: statusStyle.color, fontSize: 12 }}>
-          {status}
-        </Text>
+        {onEditPress ? (
+          <TouchableOpacity
+            accessibilityLabel="Editar solicitação"
+            activeOpacity={0.75}
+            onPress={handleEditPress}
+            style={cardStyles.editButton}
+          >
+            <Pencil size={15} color={colors.primary} />
+          </TouchableOpacity>
+        ) : null}
+
+        <View
+          style={[
+            cardStyles.statusBadge,
+            { backgroundColor: statusStyle.backgroundColor },
+          ]}
+        >
+          <Text style={[cardStyles.statusText, { color: statusStyle.color }]}>
+            {status}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
 };
+
+const cardStyles = StyleSheet.create({
+  content: {
+    flex: 1,
+    minWidth: 0,
+  },
+  metaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 6,
+  },
+  metaItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginRight: 12,
+  },
+  locationItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexShrink: 1,
+  },
+  metaIcon: {
+    height: 20,
+    marginRight: 4,
+    width: 20,
+  },
+  metaText: {
+    color: "#6B7280",
+    flexShrink: 1,
+    fontSize: 12,
+  },
+  trailing: {
+    alignItems: "flex-end",
+    alignSelf: "stretch",
+    justifyContent: "space-between",
+    marginLeft: 12,
+  },
+  trailingCentered: {
+    justifyContent: "center",
+  },
+  editButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  statusBadge: {
+    alignSelf: "flex-end",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+});

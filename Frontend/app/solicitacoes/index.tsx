@@ -202,6 +202,17 @@ export default function SolicitacoesScreen() {
       ]
     : [];
 
+  const openEditRequest = (request: VehicleRequest) => {
+    if (request.status !== "PENDING") {
+      return;
+    }
+
+    router.push({
+      pathname: "/addrequest",
+      params: { requestId: request.id, mode: "edit" },
+    });
+  };
+
   const isShowingListState =
     isLoading || Boolean(errorMessage) || filteredRequests.length === 0;
 
@@ -246,6 +257,11 @@ export default function SolicitacoesScreen() {
         location={request.destination}
         status={getRequestStatusLabel(request.status)}
         onPress={() => setSelectedRequest(request)}
+        onEditPress={
+          request.status === "PENDING"
+            ? () => openEditRequest(request)
+            : undefined
+        }
       />
     ));
   };
