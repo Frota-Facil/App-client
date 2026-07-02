@@ -9,6 +9,8 @@ export type CreateRequestData = {
   reason: string;
 };
 
+export type UpdateRequestData = Partial<CreateRequestData>;
+
 export class RequestRequestError extends Error {
   status?: number;
   isConnectionError: boolean;
@@ -23,11 +25,20 @@ export class RequestRequestError extends Error {
 
 const getResponseMessage = async (response: Response, fallback: string) => {
   try {
-    const body = (await response.json()) as { message?: unknown };
+    const body = (await response.json()) as {
+      message?: unknown;
+      error?: unknown;
+    };
 
-    return typeof body.message === "string" && body.message.trim()
-      ? body.message
-      : fallback;
+    if (typeof body.message === "string" && body.message.trim()) {
+      return body.message;
+    }
+
+    if (typeof body.error === "string" && body.error.trim()) {
+      return body.error;
+    }
+
+    return fallback;
   } catch {
     return fallback;
   }
@@ -112,5 +123,40 @@ export const createMyRequest = async (
     return (await response.json()) as VehicleRequest;
   } catch {
     throw new RequestRequestError(fallbackMessage, response.status);
+  }
+};
+
+export const updateMyRequest = async (
+  token: string,
+  requestId: string,
+  data: UpdateRequestData
+): Promise<VehicleRequest | null> => {
+  const fallbackMessage = "Não foi possível salvar a solicitação.";
+  const response = await request(
+    `/me/requests/${encodeURIComponent(requestId)}`,
+    token,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    },
+    "Não foi possível conectar ao servidor."
+  );
+
+  if (!response.ok) {
+    const message = await getResponseMessage(response, fallbackMessage);
+    throw new RequestRequestError(message, response.status);
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  try {
+    return (await response.json()) as VehicleRequest;
+  } catch {
+    return null;
   }
 };

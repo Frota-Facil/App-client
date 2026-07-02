@@ -1,60 +1,20 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Clock3, MapPin } from "lucide-react-native";
 import { styles } from "../../styles/globalStyles";
-import { TripStatus } from "../../constants/trips";
+import {
+  formatTripDate,
+  formatTripTime,
+  getTripStatusMeta,
+  type Trip,
+} from "../../constants/trips";
 
 type TripCardProps = {
-  destination: string;
-  date: string;
-  time: string;
-  vehicle: string;
-  plate: string;
-  status: TripStatus;
+  trip: Trip;
   onPress?: () => void;
 };
 
-export const TripCard = ({
-  destination,
-  date,
-  time,
-  vehicle,
-  plate,
-  status,
-  onPress,
-}: TripCardProps) => {
-  const getStatus = () => {
-    switch (status) {
-      case "scheduled":
-        return {
-          label: "Agendada",
-          bg: "#FEF3C7",
-          color: "#92400E",
-        };
-
-      case "in_progress":
-        return {
-          label: "Em andamento",
-          bg: "#CCFBF1",
-          color: "#0F766E",
-        };
-
-      case "finished":
-        return {
-          label: "Finalizada",
-          bg: "#DCFCE7",
-          color: "#16A34A",
-        };
-
-      default:
-        return {
-          label: "Agendada",
-          bg: "#FEF3C7",
-          color: "#92400E",
-        };
-    }
-  };
-
-  const s = getStatus();
+export const TripCard = ({ trip, onPress }: TripCardProps) => {
+  const status = getTripStatusMeta(trip.routeStatus);
 
   return (
     <TouchableOpacity
@@ -69,13 +29,15 @@ export const TripCard = ({
             color="#1B3A5C"
             style={styles.tripLocationIcon}
           />
-          <Text style={styles.tripDestination}>{destination}</Text>
+          <Text style={styles.tripDestination}>{trip.destination}</Text>
         </View>
 
-        <View style={[styles.tripStatusBadge, { backgroundColor: s.bg }]}>
-          <View style={[styles.tripStatusDot, { backgroundColor: s.color }]} />
-          <Text style={[styles.tripStatusText, { color: s.color }]}>
-            {s.label}
+        <View style={[styles.tripStatusBadge, { backgroundColor: status.bg }]}>
+          <View
+            style={[styles.tripStatusDot, { backgroundColor: status.color }]}
+          />
+          <Text style={[styles.tripStatusText, { color: status.color }]}>
+            {status.label}
           </Text>
         </View>
       </View>
@@ -83,9 +45,14 @@ export const TripCard = ({
       <View style={styles.tripInfoRow}>
         <View style={styles.tripInfoItem}>
           <Clock3 size={14} color="#6B7280" />
-          <Text style={styles.tripInfoText}>{date} · {time}</Text>
+          <Text style={styles.tripInfoText}>
+            {formatTripDate(trip.predictedStartDate)} ·{" "}
+            {formatTripTime(trip.predictedStartDate)}
+          </Text>
         </View>
-        <Text style={styles.tripInfoText}>{vehicle} · {plate}</Text>
+        <Text style={styles.tripInfoText}>
+          {trip.vehicle.model} · {trip.vehicle.plate}
+        </Text>
       </View>
     </TouchableOpacity>
   );

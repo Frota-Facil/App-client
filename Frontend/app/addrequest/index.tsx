@@ -14,7 +14,7 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   Calendar,
   LocaleConfig,
@@ -24,13 +24,23 @@ import {
 import { PageHeader } from "../../components/layout/PageHeader";
 import { colors } from "../../constants/colors";
 import { getVehicleDisplayName, type Vehicle } from "../../constants/data";
+import type { VehicleRequest } from "../../constants/requests";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   createMyRequest,
+  getMyRequests,
   RequestRequestError,
+  updateMyRequest,
 } from "../../services/requests";
 import { getVehicles, VehicleRequestError } from "../../services/vehicles";
 import { baseCard, SCREEN_PADDING } from "../../styles/globalStyles";
+import {
+  formatDateToPtBr,
+  getCalendarDateString,
+  getLocalDateTimeParts,
+  parseLocalDateTimeToDate,
+  parseLocalDateTimeToISOString,
+} from "../../utils/dateTime";
 
 const ACTION_PRIMARY = colors.primary;
 const CALENDAR_TEXT_PRIMARY = "#111827";
@@ -54,6 +64,9 @@ const INFINITE_HOURS = buildInfiniteTimeOptions(HOURS);
 const INFINITE_MINUTES = buildInfiniteTimeOptions(MINUTES);
 
 type TimeTarget = "start" | "end";
+
+const getParamValue = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] : value;
 
 type TimeOptionColumnProps = {
   title: string;
@@ -124,33 +137,8 @@ const calendarTheme = {
   textDayHeaderFontWeight: "600" as const,
 };
 
-const getCalendarDateString = (value = new Date()) => {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-const formatCalendarDate = (value: string) => {
-  const [year, month, day] = value.split("-");
-
-  if (!year || !month || !day) {
-    return value;
-  }
-
-  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
-};
-
 const normalizeSearchValue = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-const buildRequestDate = (date: string, time: string) => {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
-};
 
 const isScheduleConflict = (message: string) => {
   const normalizedMessage = message.toLowerCase();
@@ -162,7 +150,7 @@ const isScheduleConflict = (message: string) => {
   );
 };
 
-const getCreateErrorMessage = (error: unknown) => {
+const getSaveErrorMessage = (error: unknown, isEditing: boolean) => {
   if (!(error instanceof RequestRequestError)) {
     return "Não foi possível salvar a solicitação.";
   }
@@ -172,18 +160,43 @@ const getCreateErrorMessage = (error: unknown) => {
   }
 
   if (error.status === 403) {
-    return "Você não tem permissão para realizar esta ação.";
+    return isEditing
+      ? "Você não tem permissão para editar esta solicitação."
+      : "Você não tem permissão para realizar esta ação.";
   }
 
-  if (error.status === 409 || isScheduleConflict(error.message)) {
-    return "Este veículo já possui solicitação nesse horário.";
+  if (error.status === 400 || error.status === 409) {
+    return error.message.trim() || "Não foi possível salvar a solicitação.";
   }
 
-  if (error.status === 400) {
-    return error.message;
+  if (isScheduleConflict(error.message)) {
+    return (
+      error.message.trim() ||
+      "Este veículo já possui solicitação nesse horário."
+    );
   }
 
   return "Não foi possível salvar a solicitação.";
+};
+
+const getEditLoadErrorMessage = (error: unknown) => {
+  if (!(error instanceof RequestRequestError)) {
+    return "Não foi possível carregar a solicitação.";
+  }
+
+  if (error.isConnectionError) {
+    return "Não foi possível conectar ao servidor.";
+  }
+
+  if (error.status === 403) {
+    return "Você não tem permissão para editar esta solicitação.";
+  }
+
+  if (error.message.trim()) {
+    return error.message;
+  }
+
+  return "Não foi possível carregar a solicitação.";
 };
 
 const getTimeParts = (value?: string | null) => {
@@ -317,6 +330,19 @@ function TimeOptionColumn({
 
 export default function MakeRequest() {
   const { signOut, token } = useAuth();
+  const {
+    mode: modeParam,
+    requestId: requestIdParam,
+    vehicleId: vehicleIdParam,
+  } = useLocalSearchParams<{
+    mode?: string | string[];
+    requestId?: string | string[];
+    vehicleId?: string | string[];
+  }>();
+  const routeMode = getParamValue(modeParam);
+  const routeRequestId = getParamValue(requestIdParam);
+  const routeVehicleId = getParamValue(vehicleIdParam);
+  const isEditMode = routeMode === "edit" || Boolean(routeRequestId);
   const [date, setDate] = useState<string | null>(null);
   const [selectedDateString, setSelectedDateString] = useState<string | null>(
     null
@@ -334,6 +360,11 @@ export default function MakeRequest() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [fleetVehicles, setFleetVehicles] = useState<Vehicle[]>([]);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [loadedRequest, setLoadedRequest] = useState<VehicleRequest | null>(
+    null
+  );
+  const [isLoadingRequest, setIsLoadingRequest] = useState(isEditMode);
+  const [requestLoadError, setRequestLoadError] = useState("");
   const [vehicleError, setVehicleError] = useState("");
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -341,6 +372,7 @@ export default function MakeRequest() {
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
+  const appliedVehicleId = useRef<string | null>(null);
 
   const filteredVehicles = fleetVehicles.filter((vehicle) => {
     const search = vehicleSearch.trim().toLowerCase();
@@ -371,6 +403,21 @@ export default function MakeRequest() {
 
   const currentCalendarDate =
     selectedDateString ?? date ?? getCalendarDateString();
+  const screenTitle = isEditMode ? "Editar solicitação" : "Nova solicitação";
+  const screenSubtitle = isEditMode
+    ? "Atualize os dados da viagem"
+    : "Preencha os dados da viagem";
+  const saveButtonLabel = isEditMode ? "Salvar alterações" : "Salvar";
+  const canSubmitRequest =
+    !isEditMode || loadedRequest?.status === "PENDING";
+  const isRequestStateVisible =
+    isEditMode &&
+    (isLoadingRequest || (Boolean(requestLoadError) && !loadedRequest));
+  const isSaveDisabled =
+    isSubmitting ||
+    isLoadingVehicles ||
+    Boolean(vehicleError) ||
+    !canSubmitRequest;
   const markedDates = selectedDateString
     ? {
         [selectedDateString]: {
@@ -439,6 +486,133 @@ export default function MakeRequest() {
       isCurrent = false;
     };
   }, [signOut, token]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    const loadEditableRequest = async () => {
+      if (!isEditMode) {
+        setLoadedRequest(null);
+        setRequestLoadError("");
+        setIsLoadingRequest(false);
+        return;
+      }
+
+      if (!routeRequestId) {
+        setLoadedRequest(null);
+        setRequestLoadError("Solicitação não encontrada.");
+        setIsLoadingRequest(false);
+        return;
+      }
+
+      if (!token) {
+        setLoadedRequest(null);
+        setIsLoadingRequest(false);
+        router.replace("/");
+        return;
+      }
+
+      setIsLoadingRequest(true);
+      setRequestLoadError("");
+      setFormError("");
+
+      try {
+        const requests = await getMyRequests(token);
+        const request = requests.find((item) => item.id === routeRequestId);
+
+        if (!isCurrent) {
+          return;
+        }
+
+        if (!request) {
+          setLoadedRequest(null);
+          setRequestLoadError("Solicitação não encontrada.");
+          return;
+        }
+
+        const startParts = getLocalDateTimeParts(
+          request.predictedStartDate
+        );
+        const endParts = getLocalDateTimeParts(request.predictedEndDate);
+
+        if (!startParts || !endParts) {
+          setLoadedRequest(null);
+          setRequestLoadError(
+            "Não foi possível carregar os horários da solicitação."
+          );
+          return;
+        }
+
+        const requestVehicle: Vehicle = request.vehicle;
+        const displayName = getVehicleDisplayName(requestVehicle);
+
+        setLoadedRequest(request);
+        setDate(startParts.date);
+        setSelectedDateString(startParts.date);
+        setStartTime(startParts.time);
+        setEndTime(endParts.time);
+        setSelectedVehicle(requestVehicle);
+        setVehicleSearch(`${displayName} — ${requestVehicle.plate}`);
+        setShowVehicleOptions(false);
+        setDestination(request.destination);
+        setReason(request.reason);
+        setFormError(
+          request.status === "PENDING"
+            ? ""
+            : "Apenas solicitações pendentes podem ser editadas."
+        );
+      } catch (error) {
+        if (error instanceof RequestRequestError && error.status === 401) {
+          await signOut();
+          return;
+        }
+
+        if (isCurrent) {
+          setLoadedRequest(null);
+          setRequestLoadError(getEditLoadErrorMessage(error));
+        }
+      } finally {
+        if (isCurrent) {
+          setIsLoadingRequest(false);
+        }
+      }
+    };
+
+    void loadEditableRequest();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [isEditMode, routeRequestId, signOut, token]);
+
+  useEffect(() => {
+    if (
+      isEditMode ||
+      isLoadingVehicles ||
+      !routeVehicleId ||
+      appliedVehicleId.current === routeVehicleId
+    ) {
+      return;
+    }
+
+    appliedVehicleId.current = routeVehicleId;
+    const vehicle = fleetVehicles.find(
+      (item) => String(item.id) === routeVehicleId
+    );
+
+    if (!vehicle) {
+      setFormError(
+        "O veículo selecionado não foi encontrado. Escolha outro veículo."
+      );
+      return;
+    }
+
+    const displayName = getVehicleDisplayName(vehicle);
+    setSelectedVehicle(vehicle);
+    setVehicleSearch(`${displayName} — ${vehicle.plate}`);
+    setShowVehicleOptions(false);
+    setFormError("");
+  }, [fleetVehicles, isEditMode, isLoadingVehicles, routeVehicleId]);
 
   const openDatePicker = () => {
     setSelectedDateString(date ?? getCalendarDateString());
@@ -518,6 +692,18 @@ export default function MakeRequest() {
 
     setFormError("");
 
+    if (isEditMode) {
+      if (!routeRequestId || !loadedRequest) {
+        setFormError("Solicitação não encontrada.");
+        return;
+      }
+
+      if (loadedRequest.status !== "PENDING") {
+        setFormError("Apenas solicitações pendentes podem ser editadas.");
+        return;
+      }
+    }
+
     const trimmedDestination = destination.trim();
     const trimmedReason = reason.trim();
 
@@ -533,12 +719,19 @@ export default function MakeRequest() {
       return;
     }
 
-    const predictedStartDate = buildRequestDate(date, startTime);
-    const predictedEndDate = buildRequestDate(date, endTime);
+    const predictedStartDate = parseLocalDateTimeToDate(date, startTime);
+    const predictedEndDate = parseLocalDateTimeToDate(date, endTime);
+    const predictedStartDateIso = parseLocalDateTimeToISOString(
+      date,
+      startTime
+    );
+    const predictedEndDateIso = parseLocalDateTimeToISOString(date, endTime);
 
     if (
-      Number.isNaN(predictedStartDate.getTime()) ||
-      Number.isNaN(predictedEndDate.getTime())
+      !predictedStartDate ||
+      !predictedEndDate ||
+      !predictedStartDateIso ||
+      !predictedEndDateIso
     ) {
       setFormError("Informe uma data e horários válidos.");
       return;
@@ -557,15 +750,26 @@ export default function MakeRequest() {
     setIsSubmitting(true);
 
     try {
-      await createMyRequest(token, {
+      const requestData = {
         vehicleId: String(selectedVehicle.id),
-        predictedStartDate: predictedStartDate.toISOString(),
-        predictedEndDate: predictedEndDate.toISOString(),
+        predictedStartDate: predictedStartDateIso,
+        predictedEndDate: predictedEndDateIso,
         destination: trimmedDestination,
         reason: trimmedReason,
-      });
+      };
 
-      Alert.alert("Solicitação criada", "Sua solicitação foi enviada com sucesso.");
+      if (isEditMode && routeRequestId) {
+        await updateMyRequest(token, routeRequestId, requestData);
+      } else {
+        await createMyRequest(token, requestData);
+      }
+
+      Alert.alert(
+        isEditMode ? "Solicitação atualizada" : "Solicitação criada",
+        isEditMode
+          ? "Sua solicitação foi atualizada com sucesso."
+          : "Sua solicitação foi enviada com sucesso."
+      );
       router.replace("/solicitacoes");
     } catch (error) {
       if (error instanceof RequestRequestError && error.status === 401) {
@@ -573,7 +777,7 @@ export default function MakeRequest() {
         return;
       }
 
-      setFormError(getCreateErrorMessage(error));
+      setFormError(getSaveErrorMessage(error, isEditMode));
     } finally {
       setIsSubmitting(false);
     }
@@ -582,16 +786,28 @@ export default function MakeRequest() {
   return (
     <SafeAreaView style={styles.container}>
       <PageHeader
-        title="Nova solicitação"
-        subtitle="Preencha os dados da viagem"
+        title={screenTitle}
+        subtitle={screenSubtitle}
         showBackButton
         onBackPress={() => router.back()}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.body}
-        keyboardShouldPersistTaps="handled"
-      >
+      {isRequestStateVisible ? (
+        <View style={styles.requestState}>
+          {isLoadingRequest ? (
+            <ActivityIndicator color={colors.primary} size="large" />
+          ) : null}
+          <Text style={styles.requestStateText}>
+            {isLoadingRequest
+              ? "Carregando solicitação..."
+              : requestLoadError}
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* DATA */}
         <Text style={styles.label}>Data de uso</Text>
         <TouchableOpacity
@@ -605,7 +821,7 @@ export default function MakeRequest() {
               !date && styles.pickerPlaceholderText,
             ]}
           >
-            {date ? formatCalendarDate(date) : "dd/mm/aaaa"}
+            {date ? formatDateToPtBr(date) : "dd/mm/aaaa"}
           </Text>
         </TouchableOpacity>
         <Modal
@@ -854,23 +1070,23 @@ export default function MakeRequest() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            disabled={isSubmitting || isLoadingVehicles || Boolean(vehicleError)}
+            disabled={isSaveDisabled}
             style={[
               styles.button,
               styles.saveButton,
-              (isSubmitting || isLoadingVehicles || Boolean(vehicleError)) &&
-                styles.disabledButton,
+              isSaveDisabled && styles.disabledButton,
             ]}
             onPress={handleSave}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.saveText}>Salvar</Text>
+              <Text style={styles.saveText}>{saveButtonLabel}</Text>
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -885,6 +1101,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_PADDING,
     paddingTop: 20,
     paddingBottom: 28,
+  },
+
+  requestState: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: SCREEN_PADDING,
+  },
+
+  requestStateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 12,
+    textAlign: "center",
   },
 
   label: {

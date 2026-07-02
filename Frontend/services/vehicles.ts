@@ -13,11 +13,14 @@ export class VehicleRequestError extends Error {
   }
 }
 
-export const getVehicles = async (token: string): Promise<Vehicle[]> => {
+const loadVehicles = async (
+  token: string,
+  path: "/vehicles" | "/vehicles/available"
+): Promise<Vehicle[]> => {
   let response: Response;
 
   try {
-    response = await fetch(`${apiConfig.baseURL}/vehicles`, {
+    response = await fetch(`${apiConfig.baseURL}${path}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -65,3 +68,9 @@ export const getVehicles = async (token: string): Promise<Vehicle[]> => {
     throw new VehicleRequestError("Não foi possível carregar os veículos.");
   }
 };
+
+export const getVehicles = (token: string) =>
+  loadVehicles(token, "/vehicles");
+
+export const getAvailableVehicles = (token: string) =>
+  loadVehicles(token, "/vehicles/available");
