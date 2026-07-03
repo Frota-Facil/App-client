@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
 
 import { Header } from "../../components/layout/Hearder";
 import { getTabBarContentPadding } from "../../components/layout/TabBar";
@@ -22,9 +23,7 @@ import {
   isTripToday,
   isUpcomingTrip,
   sortTripsByStartDate,
-  type Trip,
 } from "../../constants/trips";
-import type { Vehicle } from "../../constants/data";
 import { colors } from "../../constants/colors";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMyTrips, TripRequestError } from "../../services/trips";
@@ -32,6 +31,10 @@ import {
   getAvailableVehicles,
   VehicleRequestError,
 } from "../../services/vehicles";
+import {
+  queryKeys,
+  queryRefreshIntervals,
+} from "../../services/queryKeys";
 import { styles } from "../../styles/globalStyles";
 
 const HOME_TRIP_LIMIT = 2;
@@ -69,82 +72,67 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { signOut, token } = useAuth();
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [availableVehicles, setAvailableVehicles] = useState<Vehicle[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [tripError, setTripError] = useState("");
-  const [vehicleError, setVehicleError] = useState("");
+  const {
+    data: tripsData = [],
+    error: tripsError,
+    isLoading: isLoadingTrips,
+    refetch: refetchTrips,
+  } = useQuery({
+    queryKey: queryKeys.trips,
+    queryFn: () => getMyTrips(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: 1000 * 5,
+    refetchInterval: isFocused ? queryRefreshIntervals.standard : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
+  const {
+    data: availableVehicles = [],
+    error: vehiclesError,
+    isLoading: isLoadingVehicles,
+    refetch: refetchAvailableVehicles,
+  } = useQuery({
+    queryKey: queryKeys.availableVehicles,
+    queryFn: () => getAvailableVehicles(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: 1000 * 5,
+    refetchInterval: isFocused ? queryRefreshIntervals.standard : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
 
   useFocusEffect(
     useCallback(() => {
-      let isCurrent = true;
-
-      const loadHome = async () => {
-        if (!token) {
-          if (isCurrent) {
-            setTrips([]);
-            setAvailableVehicles([]);
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        setIsLoading(true);
-        setTripError("");
-        setVehicleError("");
-
-        const [tripResult, vehicleResult] = await Promise.allSettled([
-          getMyTrips(token),
-          getAvailableVehicles(token),
-        ]);
-
-        const unauthorized = [tripResult, vehicleResult].some(
-          (result) =>
-            result.status === "rejected" &&
-            ((result.reason instanceof TripRequestError &&
-              result.reason.status === 401) ||
-              (result.reason instanceof VehicleRequestError &&
-                result.reason.status === 401))
-        );
-
-        if (unauthorized) {
-          await signOut();
-          return;
-        }
-
-        if (!isCurrent) {
-          return;
-        }
-
-        if (tripResult.status === "fulfilled") {
-          setTrips(
-            sortTripsByStartDate(
-              tripResult.value.filter((trip) => !isTripFinished(trip))
-            )
-          );
-        } else {
-          setTrips([]);
-          setTripError(getTripLoadError(tripResult.reason));
-        }
-
-        if (vehicleResult.status === "fulfilled") {
-          setAvailableVehicles(vehicleResult.value);
-        } else {
-          setAvailableVehicles([]);
-          setVehicleError(getVehicleLoadError(vehicleResult.reason));
-        }
-
-        setIsLoading(false);
-      };
-
-      void loadHome();
-
-      return () => {
-        isCurrent = false;
-      };
-    }, [signOut, token])
+      if (token) {
+        void refetchTrips();
+        void refetchAvailableVehicles();
+      }
+    }, [refetchAvailableVehicles, refetchTrips, token])
   );
 
+  useEffect(() => {
+    const hasUnauthorizedError =
+      (tripsError instanceof TripRequestError && tripsError.status === 401) ||
+      (vehiclesError instanceof VehicleRequestError &&
+        vehiclesError.status === 401);
+
+    if (hasUnauthorizedError) {
+      void signOut();
+    }
+  }, [signOut, tripsError, vehiclesError]);
+
+  const trips = useMemo(
+    () =>
+      sortTripsByStartDate(
+        tripsData.filter((trip) => !isTripFinished(trip))
+      ),
+    [tripsData]
+  );
+  const isLoading = isLoadingTrips || isLoadingVehicles;
+  const tripError = tripsError ? getTripLoadError(tripsError) : "";
+  const vehicleError = vehiclesError ? getVehicleLoadError(vehiclesError) : "";
   const todayTrips = useMemo(
     () => trips.filter(isTripToday),
     [trips]

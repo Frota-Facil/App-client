@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -12,6 +12,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Car, Clock3, MapPin, Play, Square } from "lucide-react-native";
+import { useIsFocused } from "@react-navigation/native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "../../components/layout/PageHeader";
 import {
@@ -32,6 +34,10 @@ import {
   startMyTrip,
   TripRequestError,
 } from "../../services/trips";
+import {
+  queryKeys,
+  queryRefreshIntervals,
+} from "../../services/queryKeys";
 import {
   baseCard,
   CARD_BORDER_COLOR,
@@ -120,83 +126,89 @@ const DetailRow = ({ icon, label, value }: DetailRowProps) => (
 
 export default function TripDetailsScreen() {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const queryClient = useQueryClient();
   const { id: idParam } = useLocalSearchParams<{
     id?: string | string[];
   }>();
   const routeId = Array.isArray(idParam) ? idParam[0] : idParam;
   const { signOut, token } = useAuth();
   const tabBarHeight = getTabBarHeight(insets.bottom);
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
-  const [isStarting, setIsStarting] = useState(false);
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [description, setDescription] = useState("");
   const [finishError, setFinishError] = useState("");
-  const [isFinishing, setIsFinishing] = useState(false);
+  const tripQueryKey = routeId
+    ? queryKeys.trip(routeId)
+    : queryKeys.trip("unknown");
+  const {
+    data: trip = null,
+    error: loadQueryError,
+    isLoading,
+  } = useQuery({
+    queryKey: tripQueryKey,
+    queryFn: () => getMyTrip(token ?? "", routeId ?? ""),
+    enabled: Boolean(token && routeId),
+    staleTime: 1000 * 5,
+    refetchInterval: isFocused ? queryRefreshIntervals.standard : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
 
   useEffect(() => {
-    let isCurrent = true;
+    if (loadQueryError instanceof TripRequestError && loadQueryError.status === 401) {
+      void signOut();
+    }
+  }, [loadQueryError, signOut]);
 
-    const loadTrip = async () => {
-      if (!token) {
-        if (isCurrent) {
-          setIsLoading(false);
-        }
-        return;
-      }
+  const invalidateTripQueries = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.trips }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.requests }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.home }),
+      routeId
+        ? queryClient.invalidateQueries({ queryKey: queryKeys.trip(routeId) })
+        : Promise.resolve(),
+    ]);
+  }, [queryClient, routeId]);
 
-      if (!routeId) {
-        setLoadError("Viagem não encontrada.");
-        setIsLoading(false);
-        return;
-      }
+  const startTripMutation = useMutation({
+    mutationFn: () => startMyTrip(token ?? "", routeId ?? ""),
+    onSuccess: async (updatedTrip) => {
+      queryClient.setQueryData<Trip>(tripQueryKey, updatedTrip);
+      setActionError("");
+      await invalidateTripQueries();
+    },
+  });
 
-      setIsLoading(true);
-      setLoadError("");
+  const finishTripMutation = useMutation({
+    mutationFn: (nextDescription: string) =>
+      finishMyTrip(token ?? "", routeId ?? "", nextDescription),
+    onSuccess: async (updatedTrip) => {
+      queryClient.setQueryData<Trip>(tripQueryKey, updatedTrip);
+      await invalidateTripQueries();
+    },
+  });
 
-      try {
-        const nextTrip = await getMyTrip(token, routeId);
-
-        if (isCurrent) {
-          setTrip(nextTrip);
-        }
-      } catch (error) {
-        if (error instanceof TripRequestError && error.status === 401) {
-          await signOut();
-          return;
-        }
-
-        if (isCurrent) {
-          setTrip(null);
-          setLoadError(getLoadErrorMessage(error));
-        }
-      } finally {
-        if (isCurrent) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void loadTrip();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [routeId, signOut, token]);
+  const isStarting = startTripMutation.isPending;
+  const isFinishing = finishTripMutation.isPending;
+  const loadError = !routeId
+    ? "Viagem não encontrada."
+    : loadQueryError
+      ? getLoadErrorMessage(loadQueryError)
+      : "";
 
   const handleStartTrip = async () => {
     if (!token || !routeId || isStarting) {
       return;
     }
 
-    setIsStarting(true);
     setActionError("");
 
     try {
-      const updatedTrip = await startMyTrip(token, routeId);
-      setTrip(updatedTrip);
+      await startTripMutation.mutateAsync();
     } catch (error) {
       if (error instanceof TripRequestError && error.status === 401) {
         await signOut();
@@ -204,8 +216,6 @@ export default function TripDetailsScreen() {
       }
 
       setActionError(getActionErrorMessage(error, "iniciar"));
-    } finally {
-      setIsStarting(false);
     }
   };
 
@@ -231,16 +241,10 @@ export default function TripDetailsScreen() {
       return;
     }
 
-    setIsFinishing(true);
     setFinishError("");
 
     try {
-      const updatedTrip = await finishMyTrip(
-        token,
-        routeId,
-        trimmedDescription
-      );
-      setTrip(updatedTrip);
+      await finishTripMutation.mutateAsync(trimmedDescription);
       setShowFinishModal(false);
       setDescription("");
       setActionError("");
@@ -252,8 +256,6 @@ export default function TripDetailsScreen() {
       }
 
       setFinishError(getActionErrorMessage(error, "finalizar"));
-    } finally {
-      setIsFinishing(false);
     }
   };
 

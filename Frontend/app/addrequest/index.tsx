@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   LocaleConfig,
@@ -27,12 +28,14 @@ import { getVehicleDisplayName, type Vehicle } from "../../constants/data";
 import type { VehicleRequest } from "../../constants/requests";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  type CreateRequestData,
   createMyRequest,
   getMyRequests,
   RequestRequestError,
   updateMyRequest,
 } from "../../services/requests";
 import { getVehicles, VehicleRequestError } from "../../services/vehicles";
+import { queryKeys } from "../../services/queryKeys";
 import { baseCard, SCREEN_PADDING } from "../../styles/globalStyles";
 import {
   formatDateToPtBr,
@@ -199,6 +202,20 @@ const getEditLoadErrorMessage = (error: unknown) => {
   return "Não foi possível carregar a solicitação.";
 };
 
+const getVehicleLoadErrorMessage = (error: unknown) => {
+  if (error instanceof VehicleRequestError) {
+    if (error.status === 403) {
+      return "Você não tem permissão para realizar esta ação.";
+    }
+
+    if (error.isConnectionError) {
+      return "Não foi possível conectar ao servidor.";
+    }
+  }
+
+  return "Não foi possível carregar os veículos.";
+};
+
 const getTimeParts = (value?: string | null) => {
   if (value && /^\d{2}:\d{2}$/.test(value)) {
     const [hour, minute] = value.split(":");
@@ -329,6 +346,7 @@ function TimeOptionColumn({
 };
 
 export default function MakeRequest() {
+  const queryClient = useQueryClient();
   const { signOut, token } = useAuth();
   const {
     mode: modeParam,
@@ -358,21 +376,62 @@ export default function MakeRequest() {
   const [reason, setReason] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [fleetVehicles, setFleetVehicles] = useState<Vehicle[]>([]);
-  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
   const [loadedRequest, setLoadedRequest] = useState<VehicleRequest | null>(
     null
   );
-  const [isLoadingRequest, setIsLoadingRequest] = useState(isEditMode);
   const [requestLoadError, setRequestLoadError] = useState("");
-  const [vehicleError, setVehicleError] = useState("");
   const [formError, setFormError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVehicleOptions, setShowVehicleOptions] = useState(false);
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
   const appliedVehicleId = useRef<string | null>(null);
+  const {
+    data: fleetVehicles = [],
+    error: vehiclesQueryError,
+    isLoading: isLoadingVehicles,
+  } = useQuery({
+    queryKey: queryKeys.vehicles,
+    queryFn: () => getVehicles(token ?? ""),
+    enabled: Boolean(token),
+  });
+  const requestsQuery = useQuery({
+    queryKey: queryKeys.requests,
+    queryFn: () => getMyRequests(token ?? ""),
+    enabled: Boolean(token && isEditMode && routeRequestId),
+  });
+  const invalidateRequestQueries = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.requests }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.trips }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.availableVehicles }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.home }),
+    ]);
+  }, [queryClient]);
+  const createRequestMutation = useMutation({
+    mutationFn: (requestData: CreateRequestData) =>
+      createMyRequest(token ?? "", requestData),
+    onSuccess: invalidateRequestQueries,
+  });
+  const updateRequestMutation = useMutation({
+    mutationFn: ({
+      requestData,
+      requestId,
+    }: {
+      requestData: CreateRequestData;
+      requestId: string;
+    }) => updateMyRequest(token ?? "", requestId, requestData),
+    onSuccess: invalidateRequestQueries,
+  });
+  const isLoadingRequest =
+    isEditMode && Boolean(routeRequestId) && requestsQuery.isLoading;
+  const isSubmitting =
+    createRequestMutation.isPending || updateRequestMutation.isPending;
+  const vehicleError = vehiclesQueryError
+    ? getVehicleLoadErrorMessage(vehiclesQueryError)
+    : "";
 
   const filteredVehicles = fleetVehicles.filter((vehicle) => {
     const search = vehicleSearch.trim().toLowerCase();
@@ -429,161 +488,88 @@ export default function MakeRequest() {
     : {};
 
   useEffect(() => {
-    let isCurrent = true;
+    const hasUnauthorizedError =
+      (vehiclesQueryError instanceof VehicleRequestError &&
+        vehiclesQueryError.status === 401) ||
+      (requestsQuery.error instanceof RequestRequestError &&
+        requestsQuery.error.status === 401);
 
-    const loadVehicles = async () => {
-      if (!token) {
-        setFleetVehicles([]);
-        setIsLoadingVehicles(false);
-        router.replace("/");
-        return;
-      }
-
-      setIsLoadingVehicles(true);
-      setVehicleError("");
-
-      try {
-        const nextVehicles = await getVehicles(token);
-
-        if (isCurrent) {
-          setFleetVehicles(nextVehicles);
-        }
-      } catch (error) {
-        if (error instanceof VehicleRequestError && error.status === 401) {
-          await signOut();
-          return;
-        }
-
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof VehicleRequestError) {
-          if (error.status === 403) {
-            setVehicleError(
-              "Você não tem permissão para realizar esta ação."
-            );
-            return;
-          }
-
-          if (error.isConnectionError) {
-            setVehicleError("Não foi possível conectar ao servidor.");
-            return;
-          }
-        }
-
-        setVehicleError("Não foi possível carregar os veículos.");
-      } finally {
-        if (isCurrent) {
-          setIsLoadingVehicles(false);
-        }
-      }
-    };
-
-    void loadVehicles();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [signOut, token]);
+    if (hasUnauthorizedError) {
+      void signOut();
+    }
+  }, [requestsQuery.error, signOut, vehiclesQueryError]);
 
   useEffect(() => {
-    let isCurrent = true;
-
-    const loadEditableRequest = async () => {
-      if (!isEditMode) {
-        setLoadedRequest(null);
-        setRequestLoadError("");
-        setIsLoadingRequest(false);
-        return;
-      }
-
-      if (!routeRequestId) {
-        setLoadedRequest(null);
-        setRequestLoadError("Solicitação não encontrada.");
-        setIsLoadingRequest(false);
-        return;
-      }
-
-      if (!token) {
-        setLoadedRequest(null);
-        setIsLoadingRequest(false);
-        router.replace("/");
-        return;
-      }
-
-      setIsLoadingRequest(true);
+    if (!isEditMode) {
+      setLoadedRequest(null);
       setRequestLoadError("");
-      setFormError("");
+      return;
+    }
 
-      try {
-        const requests = await getMyRequests(token);
-        const request = requests.find((item) => item.id === routeRequestId);
+    if (!routeRequestId) {
+      setLoadedRequest(null);
+      setRequestLoadError("Solicitação não encontrada.");
+      return;
+    }
 
-        if (!isCurrent) {
-          return;
-        }
+    if (!token || requestsQuery.isLoading) {
+      return;
+    }
 
-        if (!request) {
-          setLoadedRequest(null);
-          setRequestLoadError("Solicitação não encontrada.");
-          return;
-        }
+    if (requestsQuery.error) {
+      setLoadedRequest(null);
+      setRequestLoadError(getEditLoadErrorMessage(requestsQuery.error));
+      return;
+    }
 
-        const startParts = getLocalDateTimeParts(
-          request.predictedStartDate
-        );
-        const endParts = getLocalDateTimeParts(request.predictedEndDate);
+    const request = requestsQuery.data?.find(
+      (item) => item.id === routeRequestId
+    );
 
-        if (!startParts || !endParts) {
-          setLoadedRequest(null);
-          setRequestLoadError(
-            "Não foi possível carregar os horários da solicitação."
-          );
-          return;
-        }
+    if (!request) {
+      setLoadedRequest(null);
+      setRequestLoadError("Solicitação não encontrada.");
+      return;
+    }
 
-        const requestVehicle: Vehicle = request.vehicle;
-        const displayName = getVehicleDisplayName(requestVehicle);
+    const startParts = getLocalDateTimeParts(request.predictedStartDate);
+    const endParts = getLocalDateTimeParts(request.predictedEndDate);
 
-        setLoadedRequest(request);
-        setDate(startParts.date);
-        setSelectedDateString(startParts.date);
-        setStartTime(startParts.time);
-        setEndTime(endParts.time);
-        setSelectedVehicle(requestVehicle);
-        setVehicleSearch(`${displayName} — ${requestVehicle.plate}`);
-        setShowVehicleOptions(false);
-        setDestination(request.destination);
-        setReason(request.reason);
-        setFormError(
-          request.status === "PENDING"
-            ? ""
-            : "Apenas solicitações pendentes podem ser editadas."
-        );
-      } catch (error) {
-        if (error instanceof RequestRequestError && error.status === 401) {
-          await signOut();
-          return;
-        }
+    if (!startParts || !endParts) {
+      setLoadedRequest(null);
+      setRequestLoadError(
+        "Não foi possível carregar os horários da solicitação."
+      );
+      return;
+    }
 
-        if (isCurrent) {
-          setLoadedRequest(null);
-          setRequestLoadError(getEditLoadErrorMessage(error));
-        }
-      } finally {
-        if (isCurrent) {
-          setIsLoadingRequest(false);
-        }
-      }
-    };
+    const requestVehicle: Vehicle = request.vehicle;
+    const displayName = getVehicleDisplayName(requestVehicle);
 
-    void loadEditableRequest();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [isEditMode, routeRequestId, signOut, token]);
+    setLoadedRequest(request);
+    setRequestLoadError("");
+    setDate(startParts.date);
+    setSelectedDateString(startParts.date);
+    setStartTime(startParts.time);
+    setEndTime(endParts.time);
+    setSelectedVehicle(requestVehicle);
+    setVehicleSearch(`${displayName} — ${requestVehicle.plate}`);
+    setShowVehicleOptions(false);
+    setDestination(request.destination);
+    setReason(request.reason);
+    setFormError(
+      request.status === "PENDING"
+        ? ""
+        : "Apenas solicitações pendentes podem ser editadas."
+    );
+  }, [
+    isEditMode,
+    requestsQuery.data,
+    requestsQuery.error,
+    requestsQuery.isLoading,
+    routeRequestId,
+    token,
+  ]);
 
   useEffect(() => {
     if (
@@ -747,10 +733,8 @@ export default function MakeRequest() {
       return;
     }
 
-    setIsSubmitting(true);
-
     try {
-      const requestData = {
+      const requestData: CreateRequestData = {
         vehicleId: String(selectedVehicle.id),
         predictedStartDate: predictedStartDateIso,
         predictedEndDate: predictedEndDateIso,
@@ -759,9 +743,12 @@ export default function MakeRequest() {
       };
 
       if (isEditMode && routeRequestId) {
-        await updateMyRequest(token, routeRequestId, requestData);
+        await updateRequestMutation.mutateAsync({
+          requestData,
+          requestId: routeRequestId,
+        });
       } else {
-        await createMyRequest(token, requestData);
+        await createRequestMutation.mutateAsync(requestData);
       }
 
       Alert.alert(
@@ -778,8 +765,6 @@ export default function MakeRequest() {
       }
 
       setFormError(getSaveErrorMessage(error, isEditMode));
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   View,
@@ -11,6 +11,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
 
 import { styles } from "../../styles/globalStyles";
 import { getTabBarContentPadding } from "../../components/layout/TabBar";
@@ -20,12 +22,15 @@ import { FilterTabs } from "../../components/layout/FilterTabs";
 import {
   getVehicleDisplayName,
   normalizeVehicleStatus,
-  type Vehicle,
 } from "../../constants/data";
 import { colors } from "../../constants/colors";
 import { VehicleCard } from "../../components/cards/VehicleCard";
 import { useAuth } from "../../contexts/AuthContext";
 import { getVehicles, VehicleRequestError } from "../../services/vehicles";
+import {
+  queryKeys,
+  queryRefreshIntervals,
+} from "../../services/queryKeys";
 
 type VehicleFilter =
   | "Todos"
@@ -62,6 +67,7 @@ const getFilterFromParam = (
 
 export default function VehiclesScreen() {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { signOut, token } = useAuth();
   const { filter: filterParam } = useLocalSearchParams<{
     filter?: string | string[];
@@ -70,64 +76,39 @@ export default function VehiclesScreen() {
     getFilterFromParam(filterParam)
   );
   const [search, setSearch] = useState("");
-  const [fleetVehicles, setFleetVehicles] = useState<Vehicle[]>([]);
-  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const {
+    data: fleetVehicles = [],
+    error,
+    isLoading: isLoadingVehicles,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.vehicles,
+    queryFn: () => getVehicles(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: 0,
+    refetchInterval: isFocused ? queryRefreshIntervals.fast : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
 
   useEffect(() => {
     setFilter(getFilterFromParam(filterParam));
   }, [filterParam]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        void refetch();
+      }
+    }, [refetch, token])
+  );
+
   useEffect(() => {
-    let isCurrent = true;
-
-    const loadVehicles = async () => {
-      if (!token) {
-        setFleetVehicles([]);
-        setIsLoadingVehicles(false);
-        return;
-      }
-
-      setIsLoadingVehicles(true);
-      setErrorMessage("");
-
-      try {
-        const nextVehicles = await getVehicles(token);
-
-        if (isCurrent) {
-          setFleetVehicles(nextVehicles);
-        }
-      } catch (error) {
-        if (error instanceof VehicleRequestError && error.status === 401) {
-          await signOut();
-          return;
-        }
-
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof VehicleRequestError) {
-          if (error.status === 403 || error.isConnectionError) {
-            setErrorMessage(error.message);
-            return;
-          }
-        }
-
-        setErrorMessage("Não foi possível carregar os veículos.");
-      } finally {
-        if (isCurrent) {
-          setIsLoadingVehicles(false);
-        }
-      }
-    };
-
-    loadVehicles();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [signOut, token]);
+    if (error instanceof VehicleRequestError && error.status === 401) {
+      void signOut();
+    }
+  }, [error, signOut]);
 
   const filteredVehicles = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -151,6 +132,13 @@ export default function VehiclesScreen() {
     });
   }, [filter, fleetVehicles, search]);
 
+  const errorMessage =
+    error instanceof VehicleRequestError &&
+    (error.status === 403 || error.isConnectionError)
+      ? error.message
+      : error
+        ? "Não foi possível carregar os veículos."
+        : "";
   const isShowingListState =
     isLoadingVehicles || Boolean(errorMessage) || filteredVehicles.length === 0;
   const emptyMessage =

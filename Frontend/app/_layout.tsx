@@ -1,4 +1,5 @@
 import { Stack, usePathname, useRouter } from "expo-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { MD3LightTheme, PaperProvider } from "react-native-paper";
@@ -30,6 +31,17 @@ const tabBarPaths = new Set([
 
 const shouldShowTabBar = (pathname: string) =>
   tabBarPaths.has(pathname) || pathname.startsWith("/trips/");
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 30,
+      retry: 1,
+      refetchOnMount: true,
+      refetchOnReconnect: true,
+    },
+  },
+});
 
 function AppShell({ isAuthenticated }: { isAuthenticated: boolean }) {
   const pathname = usePathname();
@@ -103,9 +115,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <PaperProvider theme={paperTheme}>
-        <AuthProvider>
-          <AuthGate />
-        </AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <AuthGate />
+          </AuthProvider>
+        </QueryClientProvider>
       </PaperProvider>
     </SafeAreaProvider>
   );

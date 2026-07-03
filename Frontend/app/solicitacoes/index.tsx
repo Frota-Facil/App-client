@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +33,10 @@ import {
   getMyRequests,
   RequestRequestError,
 } from "../../services/requests";
+import {
+  queryKeys,
+  queryRefreshIntervals,
+} from "../../services/queryKeys";
 import { baseCard, styles } from "../../styles/globalStyles";
 import { formatDateToPtBr, formatTimeToPtBr } from "../../utils/dateTime";
 
@@ -87,58 +92,42 @@ const getLoadErrorMessage = (error: unknown) => {
 
 export default function SolicitacoesScreen() {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { signOut, token } = useAuth();
   const [filter, setFilter] = useState<RequestFilter>("Todas");
-  const [requests, setRequests] = useState<VehicleRequest[]>([]);
   const [selectedRequest, setSelectedRequest] =
     useState<VehicleRequest | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const {
+    data: requests = [],
+    error,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.requests,
+    queryFn: () => getMyRequests(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: 0,
+    refetchInterval: isFocused ? queryRefreshIntervals.fast : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
 
   useFocusEffect(
     useCallback(() => {
-      let isCurrent = true;
-
-      const loadRequests = async () => {
-        if (!token) {
-          setRequests([]);
-          setIsLoading(false);
-          router.replace("/");
-          return;
-        }
-
-        setIsLoading(true);
-        setErrorMessage("");
-
-        try {
-          const nextRequests = await getMyRequests(token);
-
-          if (isCurrent) {
-            setRequests(nextRequests);
-          }
-        } catch (error) {
-          if (error instanceof RequestRequestError && error.status === 401) {
-            await signOut();
-            return;
-          }
-
-          if (isCurrent) {
-            setErrorMessage(getLoadErrorMessage(error));
-          }
-        } finally {
-          if (isCurrent) {
-            setIsLoading(false);
-          }
-        }
-      };
-
-      void loadRequests();
-
-      return () => {
-        isCurrent = false;
-      };
-    }, [signOut, token])
+      if (token) {
+        void refetch();
+      }
+    }, [refetch, token])
   );
+
+  useEffect(() => {
+    if (error instanceof RequestRequestError && error.status === 401) {
+      void signOut();
+    }
+  }, [error, signOut]);
+
+  const errorMessage = error ? getLoadErrorMessage(error) : "";
 
   const filteredRequests = useMemo(() => {
     const status = filterStatus[filter];

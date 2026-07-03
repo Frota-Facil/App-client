@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,6 +11,8 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { CheckCheck } from "lucide-react-native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { styles } from "../../styles/globalStyles";
 import {
@@ -29,6 +31,10 @@ import {
   NotificationRequestError,
   type AppNotification,
 } from "../../services/notifications";
+import {
+  queryKeys,
+  queryRefreshIntervals,
+} from "../../services/queryKeys";
 import { useAuth } from "../../contexts/AuthContext";
 import { colors } from "../../constants/colors";
 
@@ -62,88 +68,98 @@ const formatNotificationDate = (date: string) => {
 
 export default function AvisosScreen() {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const queryClient = useQueryClient();
   const { token } = useAuth();
   const [filter, setFilter] = useState<NotificationFilter>("Todas");
-  const [notificationItems, setNotificationItems] = useState<AppNotification[]>(
-    []
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const {
+    data: notificationItems = [],
+    error: queryError,
+    isLoading: loading,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: () => fetchNotifications(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: 0,
+    refetchInterval: isFocused ? queryRefreshIntervals.fast : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
 
   const filters: NotificationFilter[] = ["Todas", "Aprovadas", "Recusadas"];
 
-  useEffect(() => {
-    let isCurrent = true;
-
-    const loadNotifications = async () => {
-      if (!token) {
-        setNotificationItems([]);
-        setLoading(false);
-        return;
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        void refetch();
       }
+    }, [refetch, token])
+  );
 
-      setLoading(true);
-      setError(null);
+  const invalidateNotificationQueries = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.home }),
+    ]);
+  }, [queryClient]);
 
-      try {
-        const nextNotifications = await fetchNotifications(token);
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => markAllNotificationsAsRead(token ?? ""),
+    onSuccess: async (updatedNotifications) => {
+      queryClient.setQueryData<AppNotification[]>(
+        queryKeys.notifications,
+        (currentNotifications = []) =>
+          updatedNotifications.length > 0
+            ? updatedNotifications
+            : currentNotifications.map((item) => ({
+                ...item,
+                read: true,
+              }))
+      );
+      await invalidateNotificationQueries();
+    },
+  });
 
-        if (isCurrent) {
-          setNotificationItems(nextNotifications);
-        }
-      } catch (error) {
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof NotificationRequestError) {
-          setError(error.message);
-          return;
-        }
-
-        setError("Não foi possível carregar as notificações.");
-      } finally {
-        if (isCurrent) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadNotifications();
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [token]);
+  const markNotificationAsReadMutation = useMutation({
+    mutationFn: (notificationId: string) =>
+      markNotificationAsRead(notificationId, token ?? ""),
+    onSuccess: async (updatedNotification) => {
+      queryClient.setQueryData<AppNotification[]>(
+        queryKeys.notifications,
+        (currentNotifications = []) =>
+          currentNotifications.map((item) =>
+            item.id === updatedNotification.id
+              ? {
+                  ...item,
+                  ...updatedNotification,
+                  read: true,
+                }
+              : item
+          )
+      );
+      await invalidateNotificationQueries();
+    },
+  });
 
   const handleMarkAllAsRead = async () => {
     if (!token) {
       return;
     }
 
-    setError(null);
+    setActionError(null);
 
     try {
-      const updatedNotifications = await markAllNotificationsAsRead(token);
-
-      if (updatedNotifications.length > 0) {
-        setNotificationItems(updatedNotifications);
-        return;
-      }
-
-      setNotificationItems((prev) =>
-        prev.map((item) => ({
-          ...item,
-          read: true,
-        }))
-      );
+      await markAllAsReadMutation.mutateAsync();
     } catch (error) {
       if (error instanceof NotificationRequestError) {
-        setError(error.message);
+        setActionError(error.message);
         return;
       }
 
-      setError("Não foi possível marcar as notificações como lidas.");
+      setActionError("Não foi possível marcar as notificações como lidas.");
     }
   };
 
@@ -152,34 +168,27 @@ export default function AvisosScreen() {
       return;
     }
 
-    setError(null);
+    setActionError(null);
 
     try {
-      const updatedNotification = await markNotificationAsRead(
-        notificationId,
-        token
-      );
-
-      setNotificationItems((prev) =>
-        prev.map((item) =>
-          item.id === notificationId
-            ? {
-                ...item,
-                ...updatedNotification,
-                read: true,
-              }
-            : item
-        )
-      );
+      await markNotificationAsReadMutation.mutateAsync(notificationId);
     } catch (error) {
       if (error instanceof NotificationRequestError) {
-        setError(error.message);
+        setActionError(error.message);
         return;
       }
 
-      setError("Não foi possível marcar a notificação como lida.");
+      setActionError("Não foi possível marcar a notificação como lida.");
     }
   };
+
+  const queryErrorMessage =
+    queryError instanceof NotificationRequestError
+      ? queryError.message
+      : queryError
+        ? "Não foi possível carregar as notificações."
+        : null;
+  const error = actionError ?? queryErrorMessage;
 
   const filteredNotifications =
     filter === "Todas"

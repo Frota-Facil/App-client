@@ -1,56 +1,48 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { View, Text } from 'react-native';
 import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
 import { Avatar } from '../ui/Avatar';
 import { NotificationBadge } from '../common/NotificaionBadge';
 import { styles } from '../../styles/globalStyles';
 import { RequestButton } from '../../components/ui/RequestButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchNotifications } from '../../services/notifications';
+import {
+  queryKeys,
+  queryRefreshIntervals,
+} from '../../services/queryKeys';
 
 export const Header = () => {
+  const isFocused = useIsFocused();
   const { token, user } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { data: notifications = [], refetch } = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: () => fetchNotifications(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: 0,
+    refetchInterval: isFocused ? queryRefreshIntervals.fast : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
   const driverName = user?.name?.trim() || "Motorista";
   const initials = driverName
     .split(/\s+/)
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
     .join("");
+  const unreadCount = notifications.filter(
+    (notification) => !notification.read
+  ).length;
 
   useFocusEffect(
     useCallback(() => {
-      let isCurrent = true;
-
-      const loadUnreadNotifications = async () => {
-        if (!token) {
-          setUnreadCount(0);
-          return;
-        }
-
-        try {
-          const notifications = await fetchNotifications(token);
-          const nextUnreadCount = notifications.filter(
-            (notification) => !notification.read
-          ).length;
-
-          if (isCurrent) {
-            setUnreadCount(nextUnreadCount);
-          }
-        } catch {
-          if (isCurrent) {
-            setUnreadCount(0);
-          }
-        }
-      };
-
-      loadUnreadNotifications();
-
-      return () => {
-        isCurrent = false;
-      };
-    }, [token])
+      if (token) {
+        void refetch();
+      }
+    }, [refetch, token])
   );
 
   return (

@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import type { PropsWithChildren } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Platform } from "react-native";
 
@@ -43,8 +44,20 @@ const getPushTokenPlatform = (): PushTokenPlatform | null => {
 };
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { mutateAsync: savePushTokenAsync } = useMutation({
+    mutationFn: ({
+      authToken,
+      platform,
+      pushToken,
+    }: {
+      authToken: string;
+      platform: PushTokenPlatform;
+      pushToken: string;
+    }) => savePushToken(authToken, pushToken, platform),
+  });
 
   useEffect(() => {
     getSession()
@@ -77,11 +90,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       }
 
       try {
-        const savedPushToken = await savePushToken(
-          nextSession.token,
+        const savedPushToken = await savePushTokenAsync({
+          authToken: nextSession.token,
+          platform,
           pushToken,
-          platform
-        );
+        });
 
         console.log("Expo Push Token salvo no core-service:", savedPushToken);
       } catch (error) {
@@ -101,13 +114,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     } catch (error) {
       console.warn("Erro ao registrar push notifications após login:", error);
     }
-  }, []);
+  }, [savePushTokenAsync]);
 
   const signOut = useCallback(async () => {
     await clearSession();
+    queryClient.clear();
     setSession(null);
     router.replace("/");
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({

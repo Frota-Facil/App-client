@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Check, LogOut, Pencil, X } from "lucide-react-native";
@@ -20,10 +21,12 @@ import { colors } from "../../constants/colors";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   getMe,
+  type Profile,
   ProfileRequestError,
+  type UpdateProfileData,
   updateMe,
 } from "../../services/profileService";
-import type { Profile } from "../../services/profileService";
+import { queryKeys } from "../../services/queryKeys";
 import {
   baseCard,
   CARD_SPACING,
@@ -217,10 +220,8 @@ const getProfileErrorMessage = (error: unknown, fallbackMessage: string) => {
 
 export default function PerfilScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { signOut, token } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
   const [formError, setFormError] = useState("");
   const [editingField, setEditingField] =
     useState<EditableProfileField | null>(null);
@@ -231,38 +232,49 @@ export default function PerfilScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const fullNameRef = useRef<TextInput | null>(null);
   const phoneRef = useRef<TextInput | null>(null);
-
-  const loadProfile = useCallback(async () => {
-    if (!token) {
-      return;
-    }
-
-    setIsLoading(true);
-    setLoadError("");
-
-    try {
-      const loadedProfile = await getMe(token);
-
-      setProfile(loadedProfile);
-      setFullNameDraft(loadedProfile.name);
-      setPhoneDraft(formatPhone(loadedProfile.phone));
-    } catch (error) {
-      if (error instanceof ProfileRequestError && error.status === 401) {
-        await signOut();
-        return;
-      }
-
-      setLoadError(
-        getProfileErrorMessage(error, "Não foi possível carregar o perfil."),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [signOut, token]);
+  const {
+    data: profile = null,
+    error: profileQueryError,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: () => getMe(token ?? ""),
+    enabled: Boolean(token),
+  });
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: UpdateProfileData) => updateMe(token ?? "", data),
+    onSuccess: async (updatedProfile) => {
+      queryClient.setQueryData<Profile>(queryKeys.profile, updatedProfile);
+      setFullNameDraft(updatedProfile.name);
+      setPhoneDraft(formatPhone(updatedProfile.phone));
+      setEditingField(null);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+    },
+  });
 
   useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
+    if (
+      profileQueryError instanceof ProfileRequestError &&
+      profileQueryError.status === 401
+    ) {
+      void signOut();
+    }
+  }, [profileQueryError, signOut]);
+
+  useEffect(() => {
+    if (profile && !editingField && !savingField) {
+      setFullNameDraft(profile.name);
+      setPhoneDraft(formatPhone(profile.phone));
+    }
+  }, [editingField, profile, savingField]);
+
+  const loadError = profileQueryError
+    ? getProfileErrorMessage(
+        profileQueryError,
+        "Não foi possível carregar o perfil.",
+      )
+    : "";
 
   const startEditing = (
     field: EditableProfileField,
@@ -331,17 +343,11 @@ export default function PerfilScreen() {
     setFormError("");
 
     try {
-      const updatedProfile = await updateMe(
-        token,
+      await updateProfileMutation.mutateAsync(
         field === "fullName"
           ? { name: trimmedName }
           : { phone: normalizedPhone },
       );
-
-      setProfile(updatedProfile);
-      setFullNameDraft(updatedProfile.name);
-      setPhoneDraft(formatPhone(updatedProfile.phone));
-      setEditingField(null);
     } catch (error) {
       if (error instanceof ProfileRequestError && error.status === 401) {
         await signOut();
@@ -404,7 +410,7 @@ export default function PerfilScreen() {
             <Text style={styles.errorText}>{loadError}</Text>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => void loadProfile()}
+              onPress={() => void refetch()}
               style={styles.retryButton}
             >
               <Text style={styles.retryButtonText}>Tentar novamente</Text>

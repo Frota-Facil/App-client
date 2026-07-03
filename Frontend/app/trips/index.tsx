@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -8,7 +8,8 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
 
 import { TripCard } from "../../components/cards/TripCard";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -17,10 +18,13 @@ import { colors } from "../../constants/colors";
 import {
   isTripFinished,
   sortTripsByStartDate,
-  type Trip,
 } from "../../constants/trips";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMyTrips, TripRequestError } from "../../services/trips";
+import {
+  queryKeys,
+  queryRefreshIntervals,
+} from "../../services/queryKeys";
 import { SCREEN_PADDING, styles } from "../../styles/globalStyles";
 
 const getLoadErrorMessage = (error: unknown) => {
@@ -39,61 +43,46 @@ const getLoadErrorMessage = (error: unknown) => {
 
 export default function TripsScreen() {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { signOut, token } = useAuth();
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const {
+    data: tripsData = [],
+    error,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.trips,
+    queryFn: () => getMyTrips(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: 1000 * 5,
+    refetchInterval: isFocused ? queryRefreshIntervals.standard : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
 
   useFocusEffect(
     useCallback(() => {
-      let isCurrent = true;
-
-      const loadTrips = async () => {
-        if (!token) {
-          if (isCurrent) {
-            setTrips([]);
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        setIsLoading(true);
-        setErrorMessage("");
-
-        try {
-          const nextTrips = await getMyTrips(token);
-
-          if (isCurrent) {
-            setTrips(
-              sortTripsByStartDate(
-                nextTrips.filter((trip) => !isTripFinished(trip))
-              )
-            );
-          }
-        } catch (error) {
-          if (error instanceof TripRequestError && error.status === 401) {
-            await signOut();
-            return;
-          }
-
-          if (isCurrent) {
-            setTrips([]);
-            setErrorMessage(getLoadErrorMessage(error));
-          }
-        } finally {
-          if (isCurrent) {
-            setIsLoading(false);
-          }
-        }
-      };
-
-      void loadTrips();
-
-      return () => {
-        isCurrent = false;
-      };
-    }, [signOut, token])
+      if (token) {
+        void refetch();
+      }
+    }, [refetch, token])
   );
+
+  useEffect(() => {
+    if (error instanceof TripRequestError && error.status === 401) {
+      void signOut();
+    }
+  }, [error, signOut]);
+
+  const trips = useMemo(
+    () =>
+      sortTripsByStartDate(
+        tripsData.filter((trip) => !isTripFinished(trip))
+      ),
+    [tripsData]
+  );
+  const errorMessage = error ? getLoadErrorMessage(error) : "";
 
   const openTripDetails = (id: string) => {
     router.push({

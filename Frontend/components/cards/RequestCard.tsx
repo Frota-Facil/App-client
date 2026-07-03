@@ -91,33 +91,30 @@ export const RequestCard: React.FC<Props> = ({
         </View>
       </View>
 
-      <View
-        style={[
-          cardStyles.trailing,
-          !onEditPress && cardStyles.trailingCentered,
-        ]}
-      >
-        {onEditPress ? (
-          <TouchableOpacity
-            accessibilityLabel="Editar solicitação"
-            activeOpacity={0.75}
-            hitSlop={8}
-            onPress={handleEditPress}
-            style={cardStyles.editButton}
+      <View style={cardStyles.rightActionsContainer}>
+        <View style={cardStyles.statusAndEditContainer}>
+          <View
+            style={[
+              cardStyles.statusBadge,
+              { backgroundColor: statusStyle.backgroundColor },
+            ]}
           >
-            <Pencil size={15} color={colors.primary} />
-          </TouchableOpacity>
-        ) : null}
+            <Text style={[cardStyles.statusText, { color: statusStyle.color }]}>
+              {status}
+            </Text>
+          </View>
 
-        <View
-          style={[
-            cardStyles.statusBadge,
-            { backgroundColor: statusStyle.backgroundColor },
-          ]}
-        >
-          <Text style={[cardStyles.statusText, { color: statusStyle.color }]}>
-            {status}
-          </Text>
+          {onEditPress ? (
+            <TouchableOpacity
+              accessibilityLabel="Editar solicitação"
+              activeOpacity={0.75}
+              hitSlop={8}
+              onPress={handleEditPress}
+              style={cardStyles.editButton}
+            >
+              <Pencil size={15} color={colors.primary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -162,17 +159,19 @@ const cardStyles = StyleSheet.create({
     fontSize: 12,
   },
 
-  trailing: {
+  rightActionsContainer: {
     alignItems: "flex-end",
     alignSelf: "stretch",
-    justifyContent: "flex-start",
-    gap: 14,
+    justifyContent: "center",
     marginLeft: 14,
     minWidth: 94,
   },
 
-  trailingCentered: {
-    justifyContent: "center",
+  statusAndEditContainer: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
   },
 
   editButton: {
@@ -186,7 +185,6 @@ const cardStyles = StyleSheet.create({
   },
 
   statusBadge: {
-    alignSelf: "flex-end",
     borderRadius: 12,
     maxWidth: 104,
     paddingHorizontal: 10,
