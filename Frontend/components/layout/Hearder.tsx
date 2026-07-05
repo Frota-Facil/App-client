@@ -8,6 +8,7 @@ import { NotificationBadge } from '../common/NotificaionBadge';
 import { styles } from '../../styles/globalStyles';
 import { RequestButton } from '../../components/ui/RequestButton';
 import { useAuth } from '../../contexts/AuthContext';
+import { getMe } from '../../services/profileService';
 import { fetchNotifications } from '../../services/notifications';
 import {
   queryKeys,
@@ -17,6 +18,14 @@ import {
 export const Header = () => {
   const isFocused = useIsFocused();
   const { token, user } = useAuth();
+  const { data: profile } = useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: () => getMe(token ?? ""),
+    enabled: Boolean(token),
+    staleTime: queryRefreshIntervals.standard,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
   const { data: notifications = [], refetch } = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: () => fetchNotifications(token ?? ""),
@@ -27,7 +36,8 @@ export const Header = () => {
     refetchOnMount: "always",
     refetchOnReconnect: true,
   });
-  const driverName = user?.name?.trim() || "Motorista";
+  const driverName = profile?.name?.trim() || user?.name?.trim() || "Motorista";
+  const photoUrl = profile?.photoUrl ?? user?.photoUrl ?? null;
   const initials = driverName
     .split(/\s+/)
     .slice(0, 2)
@@ -49,7 +59,7 @@ export const Header = () => {
     <View style={styles.header}>
       <View style={styles.headerTop}>
         <View style={styles.headerLeft}>
-          <Avatar initials={initials || "M"} />
+          <Avatar initials={initials || "M"} imageUrl={photoUrl} />
 
           <View>
             <Text style={styles.headerSubtitle}>Olá, motorista</Text>

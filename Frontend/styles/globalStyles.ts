@@ -102,6 +102,7 @@ export const styles = StyleSheet.create({
     backgroundColor: '#274C77',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
 
   avatarText: {

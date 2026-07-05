@@ -9,6 +9,7 @@ import {
   normalizeVehicleStatus,
   Vehicle,
 } from "../../constants/data";
+import { normalizeImageUrl } from "../../services/imageUrl";
 import { styles } from "../../styles/globalStyles";
 
 type VehicleDetailsModalProps = {
@@ -60,7 +61,10 @@ export const VehicleDetailsModal = ({
   const status = getVehicleStatusMeta(vehicle.status);
   const normalizedStatus = normalizeVehicleStatus(vehicle.status);
   const canRequestVehicle = normalizedStatus === "available";
-  const imageSource = vehicle.imageUrl ? { uri: vehicle.imageUrl } : vehicleImage;
+  const normalizedImageUrl = normalizeImageUrl(vehicle.imageUrl);
+  const imageSource = normalizedImageUrl
+    ? { uri: normalizedImageUrl }
+    : vehicleImage;
   const requestButtonText = getRequestButtonText(normalizedStatus);
 
   const handleRequestVehicle = () => {

@@ -6,11 +6,16 @@ export type Profile = {
   cpf: string;
   email: string;
   phone: string;
+  photoUrl?: string | null;
   cnh: string | null;
   department: string | null;
   role: "driver" | "admin";
   createdAt: string;
   updatedAt: string;
+};
+
+type ProfileResponse = Profile & {
+  photo_url?: string | null;
 };
 
 export type UpdateProfileData = {
@@ -50,7 +55,12 @@ const handleProfileResponse = async (
   }
 
   try {
-    return (await response.json()) as Profile;
+    const profile = (await response.json()) as ProfileResponse;
+
+    return {
+      ...profile,
+      photoUrl: profile.photoUrl ?? profile.photo_url ?? null,
+    };
   } catch {
     throw new ProfileRequestError(fallbackMessage, response.status);
   }

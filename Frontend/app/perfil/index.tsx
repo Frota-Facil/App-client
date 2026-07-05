@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import { HeaderHelpButton } from "../../components/layout/HeaderHelpButton";
 import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
 import { useAuth } from "../../contexts/AuthContext";
+import { normalizeImageUrl } from "../../services/imageUrl";
 import {
   getMe,
   type Profile,
@@ -275,6 +277,7 @@ export default function PerfilScreen() {
         "Não foi possível carregar o perfil.",
       )
     : "";
+  const profilePhotoUrl = normalizeImageUrl(profile?.photoUrl);
 
   const startEditing = (
     field: EditableProfileField,
@@ -420,9 +423,17 @@ export default function PerfilScreen() {
           <>
             <View style={styles.profileIntro}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {getInitials(profile.name)}
-                </Text>
+                {profilePhotoUrl ? (
+                  <Image
+                    resizeMode="cover"
+                    source={{ uri: profilePhotoUrl }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {getInitials(profile.name)}
+                  </Text>
+                )}
               </View>
 
               <Text style={styles.profileName}>{profile.name}</Text>
@@ -532,6 +543,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 20,
     elevation: 4,
+    overflow: "hidden",
+  },
+
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
 
   avatarText: {
