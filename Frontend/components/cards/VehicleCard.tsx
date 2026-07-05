@@ -7,6 +7,7 @@ import {
   Vehicle,
 } from "../../constants/data";
 import { VehicleDetailsModal } from "../modals/VehicleDetailsModal";
+import { normalizeImageUrl } from "../../services/imageUrl";
 import { styles } from "../../styles/globalStyles";
 
 type VehicleCardProps = Vehicle & {
@@ -19,7 +20,10 @@ export const VehicleCard = ({ variant = "list", ...vehicle }: VehicleCardProps) 
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const status = getVehicleStatusMeta(vehicle.status);
   const displayName = getVehicleDisplayName(vehicle);
-  const imageSource = vehicle.imageUrl ? { uri: vehicle.imageUrl } : vehicleImage;
+  const normalizedImageUrl = normalizeImageUrl(vehicle.imageUrl);
+  const imageSource = normalizedImageUrl
+    ? { uri: normalizedImageUrl }
+    : vehicleImage;
 
   const renderBadge = (isGrid = false) => (
     <View

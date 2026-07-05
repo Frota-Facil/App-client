@@ -1,6 +1,12 @@
 import { apiConfig } from "../config/api";
 import type { AuthSession } from "./session";
 
+type AuthSessionResponse = Omit<AuthSession, "user"> & {
+  user: AuthSession["user"] & {
+    photo_url?: string | null;
+  };
+};
+
 export class AuthRequestError extends Error {
   status?: number;
 
@@ -37,5 +43,13 @@ export const login = async (
     throw new AuthRequestError("Não foi possível conectar ao servidor", response.status);
   }
 
-  return response.json();
+  const session = (await response.json()) as AuthSessionResponse;
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      photoUrl: session.user.photoUrl ?? session.user.photo_url ?? null,
+    },
+  };
 };
