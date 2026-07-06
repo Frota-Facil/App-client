@@ -34,9 +34,12 @@ import {
   RequestRequestError,
   updateMyRequest,
 } from "../../services/requests";
-import { getVehicles, VehicleRequestError } from "../../services/vehicles";
+import {
+  getAvailableVehicles,
+  VehicleRequestError,
+} from "../../services/vehicles";
 import { queryKeys } from "../../services/queryKeys";
-import { baseCard, SCREEN_PADDING } from "../../styles/globalStyles";
+import { SCREEN_PADDING } from "../../styles/globalStyles";
 import {
   formatDateToPtBr,
   getCalendarDateString,
@@ -67,6 +70,15 @@ const INFINITE_HOURS = buildInfiniteTimeOptions(HOURS);
 const INFINITE_MINUTES = buildInfiniteTimeOptions(MINUTES);
 
 type TimeTarget = "start" | "end";
+type RequestField =
+  | "date"
+  | "startTime"
+  | "endTime"
+  | "vehicle"
+  | "destination"
+  | "reason";
+
+type RequestFieldErrors = Partial<Record<RequestField, string>>;
 
 const getParamValue = (value?: string | string[]) =>
   Array.isArray(value) ? value[0] : value;
@@ -139,9 +151,6 @@ const calendarTheme = {
   textDayFontWeight: "500" as const,
   textDayHeaderFontWeight: "600" as const,
 };
-
-const normalizeSearchValue = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const isScheduleConflict = (message: string) => {
   const normalizedMessage = message.toLowerCase();
@@ -237,6 +246,25 @@ const getTimeOptionIndex = (options: string[], value: string) => {
 
 const getRealTimeOption = (options: string[], index: number) =>
   options[((index % options.length) + options.length) % options.length];
+
+const isPastCalendarDate = (dateString: string, now = new Date()) =>
+  dateString < getCalendarDateString(now);
+
+const isPastDateTime = (
+  dateString: string,
+  timeString: string,
+  now = new Date()
+) => {
+  const selectedDateTime = parseLocalDateTimeToDate(dateString, timeString);
+  const currentMinute = new Date(now);
+
+  currentMinute.setSeconds(0, 0);
+
+  return Boolean(selectedDateTime && selectedDateTime < currentMinute);
+};
+
+const getVehicleSelectLabel = (vehicle: Vehicle | null) =>
+  vehicle ? `${getVehicleDisplayName(vehicle)} - ${vehicle.plate}` : "";
 
 const scrollTimeList = (
   listRef: React.RefObject<FlatList<string> | null>,
@@ -374,25 +402,25 @@ export default function MakeRequest() {
   const [tempMinute, setTempMinute] = useState("00");
   const [destination, setDestination] = useState("");
   const [reason, setReason] = useState("");
-  const [vehicleSearch, setVehicleSearch] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [loadedRequest, setLoadedRequest] = useState<VehicleRequest | null>(
     null
   );
   const [requestLoadError, setRequestLoadError] = useState("");
   const [formError, setFormError] = useState("");
-  const [showVehicleOptions, setShowVehicleOptions] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<RequestFieldErrors>({});
+  const [showVehicleSelect, setShowVehicleSelect] = useState(false);
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
   const appliedVehicleId = useRef<string | null>(null);
   const {
-    data: fleetVehicles = [],
+    data: availableVehicles = [],
     error: vehiclesQueryError,
     isLoading: isLoadingVehicles,
   } = useQuery({
-    queryKey: queryKeys.vehicles,
-    queryFn: () => getVehicles(token ?? ""),
+    queryKey: queryKeys.availableVehicles,
+    queryFn: () => getAvailableVehicles(token ?? ""),
     enabled: Boolean(token),
   });
   const requestsQuery = useQuery({
@@ -433,35 +461,14 @@ export default function MakeRequest() {
     ? getVehicleLoadErrorMessage(vehiclesQueryError)
     : "";
 
-  const filteredVehicles = fleetVehicles.filter((vehicle) => {
-    const search = vehicleSearch.trim().toLowerCase();
-    const normalizedSearch = normalizeSearchValue(vehicleSearch);
-
-    if (!search) {
-      return true;
-    }
-
-    const displayName = getVehicleDisplayName(vehicle).toLowerCase();
-    const name = vehicle.name?.toLowerCase() ?? "";
-    const model = vehicle.model?.toLowerCase() ?? "";
-    const plate = vehicle.plate.toLowerCase();
-    const normalizedPlate = normalizeSearchValue(vehicle.plate);
-    const normalizedVehicleText = normalizeSearchValue(
-      `${displayName} ${name} ${model} ${plate}`
-    );
-
-    return (
-      displayName.includes(search) ||
-      name.includes(search) ||
-      model.includes(search) ||
-      plate.includes(search) ||
-      normalizedPlate.includes(normalizedSearch) ||
-      normalizedVehicleText.includes(normalizedSearch)
-    );
-  });
-
+  const selectedVehicleLabel = getVehicleSelectLabel(selectedVehicle);
+  const todayCalendarDate = getCalendarDateString();
   const currentCalendarDate =
-    selectedDateString ?? date ?? getCalendarDateString();
+    selectedDateString && !isPastCalendarDate(selectedDateString)
+      ? selectedDateString
+      : date && !isPastCalendarDate(date)
+        ? date
+        : todayCalendarDate;
   const screenTitle = isEditMode ? "Editar solicitação" : "Nova solicitação";
   const screenSubtitle = isEditMode
     ? "Atualize os dados da viagem"
@@ -544,8 +551,6 @@ export default function MakeRequest() {
     }
 
     const requestVehicle: Vehicle = request.vehicle;
-    const displayName = getVehicleDisplayName(requestVehicle);
-
     setLoadedRequest(request);
     setRequestLoadError("");
     setDate(startParts.date);
@@ -553,10 +558,10 @@ export default function MakeRequest() {
     setStartTime(startParts.time);
     setEndTime(endParts.time);
     setSelectedVehicle(requestVehicle);
-    setVehicleSearch(`${displayName} — ${requestVehicle.plate}`);
-    setShowVehicleOptions(false);
+    setShowVehicleSelect(false);
     setDestination(request.destination);
     setReason(request.reason);
+    setFieldErrors({});
     setFormError(
       request.status === "PENDING"
         ? ""
@@ -582,7 +587,7 @@ export default function MakeRequest() {
     }
 
     appliedVehicleId.current = routeVehicleId;
-    const vehicle = fleetVehicles.find(
+    const vehicle = availableVehicles.find(
       (item) => String(item.id) === routeVehicleId
     );
 
@@ -593,15 +598,36 @@ export default function MakeRequest() {
       return;
     }
 
-    const displayName = getVehicleDisplayName(vehicle);
     setSelectedVehicle(vehicle);
-    setVehicleSearch(`${displayName} — ${vehicle.plate}`);
-    setShowVehicleOptions(false);
+    setShowVehicleSelect(false);
+    setFieldErrors((current) => ({ ...current, vehicle: undefined }));
     setFormError("");
-  }, [fleetVehicles, isEditMode, isLoadingVehicles, routeVehicleId]);
+  }, [availableVehicles, isEditMode, isLoadingVehicles, routeVehicleId]);
+
+  const clearFieldError = (field: RequestField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [field]: undefined,
+      };
+    });
+  };
+
+  const setFieldError = (field: RequestField, message: string) => {
+    setFieldErrors((current) => ({
+      ...current,
+      [field]: message,
+    }));
+  };
 
   const openDatePicker = () => {
-    setSelectedDateString(date ?? getCalendarDateString());
+    setSelectedDateString(
+      date && !isPastCalendarDate(date) ? date : todayCalendarDate
+    );
     setShowDatePicker(true);
   };
 
@@ -626,10 +652,16 @@ export default function MakeRequest() {
   };
 
   const confirmDateSelection = () => {
-    if (selectedDateString) {
-      setDate(selectedDateString);
+    if (!selectedDateString || isPastCalendarDate(selectedDateString)) {
+      setFieldError("date", "Selecione uma data válida.");
+      setShowDatePicker(false);
+      return;
     }
 
+    setDate(selectedDateString);
+    clearFieldError("date");
+    clearFieldError("startTime");
+    clearFieldError("endTime");
     setShowDatePicker(false);
   };
 
@@ -652,22 +684,52 @@ export default function MakeRequest() {
     const selectedTime = `${tempHour}:${tempMinute}`;
 
     if (timeTarget === "start") {
+      if (!date) {
+        setFieldError("date", "Selecione uma data válida.");
+        cancelTimeSelection();
+        return;
+      }
+
+      if (isPastCalendarDate(date) || isPastDateTime(date, selectedTime)) {
+        setFieldError(
+          "startTime",
+          "Não é possível solicitar veículo para um horário que já passou."
+        );
+        cancelTimeSelection();
+        return;
+      }
+
       setStartTime(selectedTime);
+      clearFieldError("startTime");
+      clearFieldError("endTime");
     }
 
     if (timeTarget === "end") {
+      if (date && startTime) {
+        const startDateTime = parseLocalDateTimeToDate(date, startTime);
+        const endDateTime = parseLocalDateTimeToDate(date, selectedTime);
+
+        if (startDateTime && endDateTime && endDateTime <= startDateTime) {
+          setFieldError(
+            "endTime",
+            "O horário de término deve ser depois do horário de início."
+          );
+          cancelTimeSelection();
+          return;
+        }
+      }
+
       setEndTime(selectedTime);
+      clearFieldError("endTime");
     }
 
     cancelTimeSelection();
   };
 
   const selectVehicle = (vehicle: Vehicle) => {
-    const displayName = getVehicleDisplayName(vehicle);
-
     setSelectedVehicle(vehicle);
-    setVehicleSearch(`${displayName} — ${vehicle.plate}`);
-    setShowVehicleOptions(false);
+    setShowVehicleSelect(false);
+    clearFieldError("vehicle");
     setFormError("");
   };
 
@@ -677,6 +739,7 @@ export default function MakeRequest() {
     }
 
     setFormError("");
+    setFieldErrors({});
 
     if (isEditMode) {
       if (!routeRequestId || !loadedRequest) {
@@ -692,26 +755,57 @@ export default function MakeRequest() {
 
     const trimmedDestination = destination.trim();
     const trimmedReason = reason.trim();
+    const nextFieldErrors: RequestFieldErrors = {};
 
-    if (
-      !date ||
-      !startTime ||
-      !endTime ||
-      !selectedVehicle ||
-      !trimmedDestination ||
-      !trimmedReason
-    ) {
-      setFormError("Preencha todos os campos obrigatórios.");
+    if (!date || isPastCalendarDate(date)) {
+      nextFieldErrors.date = "Selecione uma data válida.";
+    }
+
+    if (!startTime) {
+      nextFieldErrors.startTime = "Informe o horário de início.";
+    }
+
+    if (!endTime) {
+      nextFieldErrors.endTime = "Informe o término previsto.";
+    }
+
+    if (!selectedVehicle) {
+      nextFieldErrors.vehicle = "Selecione um veículo.";
+    }
+
+    if (!trimmedDestination) {
+      nextFieldErrors.destination = "Informe o destino.";
+    }
+
+    if (!trimmedReason) {
+      nextFieldErrors.reason = "Informe a finalidade.";
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
       return;
     }
 
-    const predictedStartDate = parseLocalDateTimeToDate(date, startTime);
-    const predictedEndDate = parseLocalDateTimeToDate(date, endTime);
-    const predictedStartDateIso = parseLocalDateTimeToISOString(
-      date,
+    const requestDate = date;
+    const requestVehicle = selectedVehicle;
+
+    if (!requestDate || !requestVehicle) {
+      return;
+    }
+
+    const predictedStartDate = parseLocalDateTimeToDate(
+      requestDate,
       startTime
     );
-    const predictedEndDateIso = parseLocalDateTimeToISOString(date, endTime);
+    const predictedEndDate = parseLocalDateTimeToDate(requestDate, endTime);
+    const predictedStartDateIso = parseLocalDateTimeToISOString(
+      requestDate,
+      startTime
+    );
+    const predictedEndDateIso = parseLocalDateTimeToISOString(
+      requestDate,
+      endTime
+    );
 
     if (
       !predictedStartDate ||
@@ -719,12 +813,24 @@ export default function MakeRequest() {
       !predictedStartDateIso ||
       !predictedEndDateIso
     ) {
-      setFormError("Informe uma data e horários válidos.");
+      setFieldErrors({
+        date: "Selecione uma data válida.",
+      });
+      return;
+    }
+
+    if (isPastDateTime(requestDate, startTime)) {
+      setFieldErrors({
+        startTime:
+          "Não é possível solicitar veículo para um horário que já passou.",
+      });
       return;
     }
 
     if (predictedEndDate <= predictedStartDate) {
-      setFormError("O término previsto deve ser maior que o início.");
+      setFieldErrors({
+        endTime: "O horário de término deve ser depois do horário de início.",
+      });
       return;
     }
 
@@ -735,7 +841,7 @@ export default function MakeRequest() {
 
     try {
       const requestData: CreateRequestData = {
-        vehicleId: String(selectedVehicle.id),
+        vehicleId: String(requestVehicle.id),
         predictedStartDate: predictedStartDateIso,
         predictedEndDate: predictedEndDateIso,
         destination: trimmedDestination,
@@ -798,7 +904,11 @@ export default function MakeRequest() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={openDatePicker}
-          style={[styles.input, styles.pickerInput]}
+          style={[
+            styles.input,
+            styles.pickerInput,
+            fieldErrors.date && styles.inputError,
+          ]}
         >
           <Text
             style={[
@@ -809,6 +919,9 @@ export default function MakeRequest() {
             {date ? formatDateToPtBr(date) : "dd/mm/aaaa"}
           </Text>
         </TouchableOpacity>
+        {fieldErrors.date ? (
+          <Text style={styles.fieldError}>{fieldErrors.date}</Text>
+        ) : null}
         <Modal
           visible={showDatePicker}
           transparent
@@ -825,10 +938,15 @@ export default function MakeRequest() {
                 firstDay={0}
                 hideExtraDays
                 enableSwipeMonths
+                minDate={todayCalendarDate}
                 markedDates={markedDates}
-                onDayPress={(day: DateData) =>
-                  setSelectedDateString(day.dateString)
-                }
+                onDayPress={(day: DateData) => {
+                  if (isPastCalendarDate(day.dateString)) {
+                    return;
+                  }
+
+                  setSelectedDateString(day.dateString);
+                }}
                 theme={calendarTheme}
                 style={styles.calendar}
               />
@@ -861,7 +979,11 @@ export default function MakeRequest() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => openTimePicker("start")}
-              style={[styles.input, styles.pickerInput]}
+              style={[
+                styles.input,
+                styles.pickerInput,
+                fieldErrors.startTime && styles.inputError,
+              ]}
             >
               <Text
                 style={[
@@ -872,6 +994,9 @@ export default function MakeRequest() {
                 {startTime || "--:--"}
               </Text>
             </TouchableOpacity>
+            {fieldErrors.startTime ? (
+              <Text style={styles.fieldError}>{fieldErrors.startTime}</Text>
+            ) : null}
           </View>
 
           <View style={styles.flex}>
@@ -879,7 +1004,11 @@ export default function MakeRequest() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => openTimePicker("end")}
-              style={[styles.input, styles.pickerInput]}
+              style={[
+                styles.input,
+                styles.pickerInput,
+                fieldErrors.endTime && styles.inputError,
+              ]}
             >
               <Text
                 style={[
@@ -890,6 +1019,9 @@ export default function MakeRequest() {
                 {endTime || "--:--"}
               </Text>
             </TouchableOpacity>
+            {fieldErrors.endTime ? (
+              <Text style={styles.fieldError}>{fieldErrors.endTime}</Text>
+            ) : null}
           </View>
         </View>
         <Modal
@@ -948,26 +1080,35 @@ export default function MakeRequest() {
         {/* VEÍCULO */}
         <Text style={styles.label}>Veículo</Text>
         <View style={styles.vehicleSelectWrapper}>
-          <TextInput
-            value={vehicleSearch}
-            onChangeText={(value) => {
-              setVehicleSearch(value);
-              setSelectedVehicle(null);
-              setShowVehicleOptions(true);
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={isLoadingVehicles || Boolean(vehicleError)}
+            onPress={() => {
+              setShowVehicleSelect(true);
+              clearFieldError("vehicle");
               setFormError("");
             }}
-            onFocus={() => {
-              if (!isLoadingVehicles && !vehicleError) {
-                setShowVehicleOptions(true);
-              }
-            }}
-            editable={!isLoadingVehicles && !vehicleError}
-            placeholder={
-              isLoadingVehicles ? "Carregando veículos..." : "Digite modelo ou placa"
-            }
-            style={styles.input}
-            placeholderTextColor={colors.textMuted}
-          />
+            style={[
+              styles.input,
+              styles.selectInput,
+              fieldErrors.vehicle && styles.inputError,
+              (isLoadingVehicles || Boolean(vehicleError)) &&
+                styles.disabledInput,
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.pickerText,
+                !selectedVehicleLabel && styles.pickerPlaceholderText,
+              ]}
+            >
+              {isLoadingVehicles
+                ? "Carregando veículos..."
+                : selectedVehicleLabel || "Selecione um veículo"}
+            </Text>
+            <Text style={styles.selectChevron}>▼</Text>
+          </TouchableOpacity>
 
           {isLoadingVehicles && (
             <View style={styles.vehicleLoading}>
@@ -980,36 +1121,67 @@ export default function MakeRequest() {
             <Text style={styles.fieldError}>{vehicleError}</Text>
           ) : null}
 
-          {showVehicleOptions && !isLoadingVehicles && !vehicleError && (
-            <View style={styles.vehicleOptionsCard}>
-              {filteredVehicles.length > 0 ? (
-                filteredVehicles.map((vehicle) => {
-                  const displayName = getVehicleDisplayName(vehicle);
+          {fieldErrors.vehicle ? (
+            <Text style={styles.fieldError}>{fieldErrors.vehicle}</Text>
+          ) : null}
+        </View>
+        <Modal
+          animationType="fade"
+          onRequestClose={() => setShowVehicleSelect(false)}
+          transparent
+          visible={showVehicleSelect}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.vehicleSelectCard}>
+              <Text style={styles.modalTitle}>Selecionar veículo</Text>
 
-                  return (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      key={vehicle.id}
-                      onPress={() => selectVehicle(vehicle)}
-                      style={styles.vehicleOption}
-                    >
-                      <Text style={styles.vehicleOptionName}>
-                        {displayName}
-                      </Text>
-                      <Text style={styles.vehicleOptionPlate}>
-                        {vehicle.plate}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
+              {availableVehicles.length > 0 ? (
+                <FlatList
+                  data={availableVehicles}
+                  keyExtractor={(vehicle) => String(vehicle.id)}
+                  style={styles.vehicleSelectList}
+                  renderItem={({ item }) => {
+                    const displayName = getVehicleDisplayName(item);
+                    const isSelected =
+                      selectedVehicle && String(selectedVehicle.id) === String(item.id);
+
+                    return (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => selectVehicle(item)}
+                        style={[
+                          styles.vehicleOption,
+                          isSelected && styles.vehicleOptionSelected,
+                        ]}
+                      >
+                        <Text style={styles.vehicleOptionName}>
+                          {displayName}
+                        </Text>
+                        <Text style={styles.vehicleOptionPlate}>
+                          {item.plate}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
               ) : (
                 <Text style={styles.vehicleOptionEmpty}>
-                  Nenhum veículo encontrado
+                  Nenhum veículo disponível.
                 </Text>
               )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setShowVehicleSelect(false)}
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                >
+                  <Text style={styles.modalCancelText}>Fechar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-        </View>
+          </View>
+        </Modal>
 
         {/* DESTINO */}
         <Text style={styles.label}>Destino</Text>
@@ -1018,11 +1190,15 @@ export default function MakeRequest() {
           value={destination}
           onChangeText={(value) => {
             setDestination(value);
+            clearFieldError("destination");
             setFormError("");
           }}
-          style={styles.input}
+          style={[styles.input, fieldErrors.destination && styles.inputError]}
           placeholderTextColor={colors.textMuted}
         />
+        {fieldErrors.destination ? (
+          <Text style={styles.fieldError}>{fieldErrors.destination}</Text>
+        ) : null}
 
         {/* FINALIDADE */}
         <Text style={styles.label}>Finalidade</Text>
@@ -1031,12 +1207,20 @@ export default function MakeRequest() {
           value={reason}
           onChangeText={(value) => {
             setReason(value);
+            clearFieldError("reason");
             setFormError("");
           }}
-          style={[styles.input, styles.textArea]}
+          style={[
+            styles.input,
+            styles.textArea,
+            fieldErrors.reason && styles.inputError,
+          ]}
           multiline
           placeholderTextColor={colors.textMuted}
         />
+        {fieldErrors.reason ? (
+          <Text style={styles.fieldError}>{fieldErrors.reason}</Text>
+        ) : null}
 
         {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
@@ -1123,17 +1307,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
+  inputError: {
+    borderColor: colors.danger,
+  },
+
+  disabledInput: {
+    opacity: 0.7,
+  },
+
   pickerInput: {
     justifyContent: "center",
+  },
+
+  selectInput: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
   },
 
   pickerText: {
     color: colors.textPrimary,
     fontSize: 15,
+    flex: 1,
   },
 
   pickerPlaceholderText: {
     color: colors.textMuted,
+  },
+
+  selectChevron: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
   },
 
   modalOverlay: {
@@ -1303,11 +1509,19 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
 
-  vehicleOptionsCard: {
-    ...baseCard,
-    marginTop: 8,
-    padding: 0,
-    overflow: "hidden",
+  vehicleSelectCard: {
+    width: "100%",
+    maxWidth: 390,
+    maxHeight: "76%",
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+
+  vehicleSelectList: {
+    maxHeight: 360,
   },
 
   vehicleOption: {
@@ -1315,6 +1529,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
+  },
+
+  vehicleOptionSelected: {
+    backgroundColor: "#E8EEF5",
+    borderRadius: 12,
   },
 
   vehicleOptionName: {
