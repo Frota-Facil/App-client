@@ -22,9 +22,10 @@ import {
   type DateData,
 } from "react-native-calendars";
 
+import { VehicleAutocomplete } from "../../components/forms/VehicleAutocomplete";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { colors } from "../../constants/colors";
-import { getVehicleDisplayName, type Vehicle } from "../../constants/data";
+import type { Vehicle } from "../../constants/data";
 import type { VehicleRequest } from "../../constants/requests";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -263,9 +264,6 @@ const isPastDateTime = (
   return Boolean(selectedDateTime && selectedDateTime < currentMinute);
 };
 
-const getVehicleSelectLabel = (vehicle: Vehicle | null) =>
-  vehicle ? `${getVehicleDisplayName(vehicle)} - ${vehicle.plate}` : "";
-
 const scrollTimeList = (
   listRef: React.RefObject<FlatList<string> | null>,
   options: string[],
@@ -409,7 +407,6 @@ export default function MakeRequest() {
   const [requestLoadError, setRequestLoadError] = useState("");
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<RequestFieldErrors>({});
-  const [showVehicleSelect, setShowVehicleSelect] = useState(false);
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
@@ -461,7 +458,6 @@ export default function MakeRequest() {
     ? getVehicleLoadErrorMessage(vehiclesQueryError)
     : "";
 
-  const selectedVehicleLabel = getVehicleSelectLabel(selectedVehicle);
   const todayCalendarDate = getCalendarDateString();
   const currentCalendarDate =
     selectedDateString && !isPastCalendarDate(selectedDateString)
@@ -558,7 +554,6 @@ export default function MakeRequest() {
     setStartTime(startParts.time);
     setEndTime(endParts.time);
     setSelectedVehicle(requestVehicle);
-    setShowVehicleSelect(false);
     setDestination(request.destination);
     setReason(request.reason);
     setFieldErrors({});
@@ -599,7 +594,6 @@ export default function MakeRequest() {
     }
 
     setSelectedVehicle(vehicle);
-    setShowVehicleSelect(false);
     setFieldErrors((current) => ({ ...current, vehicle: undefined }));
     setFormError("");
   }, [availableVehicles, isEditMode, isLoadingVehicles, routeVehicleId]);
@@ -728,7 +722,12 @@ export default function MakeRequest() {
 
   const selectVehicle = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
-    setShowVehicleSelect(false);
+    clearFieldError("vehicle");
+    setFormError("");
+  };
+
+  const clearSelectedVehicle = () => {
+    setSelectedVehicle(null);
     clearFieldError("vehicle");
     setFormError("");
   };
@@ -770,7 +769,7 @@ export default function MakeRequest() {
     }
 
     if (!selectedVehicle) {
-      nextFieldErrors.vehicle = "Selecione um veículo.";
+      nextFieldErrors.vehicle = "Selecione um veículo da lista.";
     }
 
     if (!trimmedDestination) {
@@ -1080,42 +1079,15 @@ export default function MakeRequest() {
         {/* VEÍCULO */}
         <Text style={styles.label}>Veículo</Text>
         <View style={styles.vehicleSelectWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            disabled={isLoadingVehicles || Boolean(vehicleError)}
-            onPress={() => {
-              setShowVehicleSelect(true);
-              clearFieldError("vehicle");
-              setFormError("");
-            }}
-            style={[
-              styles.input,
-              styles.selectInput,
-              fieldErrors.vehicle && styles.inputError,
-              (isLoadingVehicles || Boolean(vehicleError)) &&
-                styles.disabledInput,
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.pickerText,
-                !selectedVehicleLabel && styles.pickerPlaceholderText,
-              ]}
-            >
-              {isLoadingVehicles
-                ? "Carregando veículos..."
-                : selectedVehicleLabel || "Selecione um veículo"}
-            </Text>
-            <Text style={styles.selectChevron}>▼</Text>
-          </TouchableOpacity>
-
-          {isLoadingVehicles && (
-            <View style={styles.vehicleLoading}>
-              <ActivityIndicator color={colors.primary} size="small" />
-              <Text style={styles.vehicleLoadingText}>Carregando veículos...</Text>
-            </View>
-          )}
+          <VehicleAutocomplete
+            disabled={Boolean(vehicleError)}
+            hasError={Boolean(fieldErrors.vehicle)}
+            isLoading={isLoadingVehicles}
+            onClearSelection={clearSelectedVehicle}
+            onSelect={selectVehicle}
+            selectedVehicle={selectedVehicle}
+            vehicles={availableVehicles}
+          />
 
           {vehicleError ? (
             <Text style={styles.fieldError}>{vehicleError}</Text>
@@ -1125,63 +1097,6 @@ export default function MakeRequest() {
             <Text style={styles.fieldError}>{fieldErrors.vehicle}</Text>
           ) : null}
         </View>
-        <Modal
-          animationType="fade"
-          onRequestClose={() => setShowVehicleSelect(false)}
-          transparent
-          visible={showVehicleSelect}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.vehicleSelectCard}>
-              <Text style={styles.modalTitle}>Selecionar veículo</Text>
-
-              {availableVehicles.length > 0 ? (
-                <FlatList
-                  data={availableVehicles}
-                  keyExtractor={(vehicle) => String(vehicle.id)}
-                  style={styles.vehicleSelectList}
-                  renderItem={({ item }) => {
-                    const displayName = getVehicleDisplayName(item);
-                    const isSelected =
-                      selectedVehicle && String(selectedVehicle.id) === String(item.id);
-
-                    return (
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={() => selectVehicle(item)}
-                        style={[
-                          styles.vehicleOption,
-                          isSelected && styles.vehicleOptionSelected,
-                        ]}
-                      >
-                        <Text style={styles.vehicleOptionName}>
-                          {displayName}
-                        </Text>
-                        <Text style={styles.vehicleOptionPlate}>
-                          {item.plate}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  }}
-                />
-              ) : (
-                <Text style={styles.vehicleOptionEmpty}>
-                  Nenhum veículo disponível.
-                </Text>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setShowVehicleSelect(false)}
-                  style={[styles.modalButton, styles.modalCancelButton]}
-                >
-                  <Text style={styles.modalCancelText}>Fechar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {/* DESTINO */}
         <Text style={styles.label}>Destino</Text>
@@ -1311,19 +1226,8 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
 
-  disabledInput: {
-    opacity: 0.7,
-  },
-
   pickerInput: {
     justifyContent: "center",
-  },
-
-  selectInput: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
   },
 
   pickerText: {
@@ -1334,12 +1238,6 @@ const styles = StyleSheet.create({
 
   pickerPlaceholderText: {
     color: colors.textMuted,
-  },
-
-  selectChevron: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "700",
   },
 
   modalOverlay: {
@@ -1507,64 +1405,6 @@ const styles = StyleSheet.create({
   vehicleSelectWrapper: {
     position: "relative",
     zIndex: 2,
-  },
-
-  vehicleSelectCard: {
-    width: "100%",
-    maxWidth: 390,
-    maxHeight: "76%",
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 16,
-  },
-
-  vehicleSelectList: {
-    maxHeight: 360,
-  },
-
-  vehicleOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-
-  vehicleOptionSelected: {
-    backgroundColor: "#E8EEF5",
-    borderRadius: 12,
-  },
-
-  vehicleOptionName: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  vehicleOptionPlate: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    marginTop: 2,
-  },
-
-  vehicleOptionEmpty: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-
-  vehicleLoading: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-  },
-
-  vehicleLoadingText: {
-    color: colors.textSecondary,
-    fontSize: 13,
   },
 
   fieldError: {

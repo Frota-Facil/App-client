@@ -143,9 +143,6 @@ export default function HomeScreen() {
   );
   const todayTripsPreview = todayTrips.slice(0, HOME_TRIP_LIMIT);
   const upcomingTripsPreview = upcomingTrips.slice(0, HOME_TRIP_LIMIT);
-  const visibleTripCount =
-    todayTripsPreview.length + upcomingTripsPreview.length;
-  const hasMoreTrips = trips.length > visibleTripCount;
   const vehiclesPreview = availableVehicles.slice(0, HOME_VEHICLE_LIMIT);
 
   const openTripDetails = (id: string) => {
@@ -173,96 +170,96 @@ export default function HomeScreen() {
         style={[styles.body, homeStyles.body]}
         contentContainerStyle={[
           styles.bodyContent,
-          isLoading && homeStyles.loadingContent,
           { paddingBottom: getTabBarContentPadding(insets.bottom) + 24 },
         ]}
       >
-        {isLoading ? (
-          <View style={homeStyles.stateContainer}>
-            <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={homeStyles.stateText}>Carregando dados...</Text>
+        <View style={homeStyles.section}>
+          <View style={[styles.sectionHeader, homeStyles.sectionHeader]}>
+            <Text style={styles.sectionTitle}>Minhas Viagens</Text>
+            <TouchableOpacity
+              hitSlop={{ top: 10, right: 8, bottom: 10, left: 8 }}
+              onPress={() => router.push("/trips")}
+            >
+              <Text style={styles.sectionLink}>Ver todas</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <>
-            <View style={homeStyles.section}>
-              <View style={[styles.sectionHeader, homeStyles.sectionHeader]}>
-                <Text style={styles.sectionTitle}>Minhas Viagens</Text>
-                {hasMoreTrips && (
-                  <TouchableOpacity onPress={() => router.push("/trips")}>
-                    <Text style={styles.sectionLink}>Ver todas</Text>
-                  </TouchableOpacity>
+
+          {isLoading ? (
+            <View style={homeStyles.stateContainer}>
+              <ActivityIndicator color={colors.primary} size="large" />
+              <Text style={homeStyles.stateText}>Carregando dados...</Text>
+            </View>
+          ) : tripError ? (
+            <View style={homeStyles.stateBlock}>
+              <Text style={homeStyles.errorText}>{tripError}</Text>
+            </View>
+          ) : (
+            <>
+              <View style={homeStyles.tripGroup}>
+                <View
+                  style={[
+                    styles.tripGroupHeader,
+                    homeStyles.tripGroupHeader,
+                  ]}
+                >
+                  <Text style={styles.tripGroupTitle}>HOJE</Text>
+                  <Text style={styles.tripGroupCount}>
+                    {todayTrips.length} viagem(ns)
+                  </Text>
+                </View>
+
+                {todayTripsPreview.map((trip) => (
+                  <TripCard
+                    key={trip.id}
+                    trip={trip}
+                    onPress={() => openTripDetails(trip.id)}
+                  />
+                ))}
+
+                {todayTripsPreview.length === 0 && (
+                  <View style={homeStyles.emptyBlock}>
+                    <Text style={homeStyles.emptyText}>
+                      Nenhuma viagem para hoje.
+                    </Text>
+                  </View>
                 )}
               </View>
 
-              {tripError ? (
-                <View style={homeStyles.stateBlock}>
-                  <Text style={homeStyles.errorText}>{tripError}</Text>
+              <View style={homeStyles.tripGroup}>
+                <View
+                  style={[
+                    styles.tripGroupHeader,
+                    homeStyles.tripGroupHeader,
+                  ]}
+                >
+                  <Text style={styles.tripGroupTitle}>PRÓXIMAS</Text>
+                  <Text style={styles.tripGroupCount}>
+                    {upcomingTrips.length} viagem(ns)
+                  </Text>
                 </View>
-              ) : (
-                <>
-                  <View style={homeStyles.tripGroup}>
-                    <View
-                      style={[
-                        styles.tripGroupHeader,
-                        homeStyles.tripGroupHeader,
-                      ]}
-                    >
-                      <Text style={styles.tripGroupTitle}>HOJE</Text>
-                      <Text style={styles.tripGroupCount}>
-                        {todayTrips.length} viagem(ns)
-                      </Text>
-                    </View>
 
-                    {todayTripsPreview.map((trip) => (
-                      <TripCard
-                        key={trip.id}
-                        trip={trip}
-                        onPress={() => openTripDetails(trip.id)}
-                      />
-                    ))}
+                {upcomingTripsPreview.map((trip) => (
+                  <TripCard
+                    key={trip.id}
+                    trip={trip}
+                    onPress={() => openTripDetails(trip.id)}
+                  />
+                ))}
 
-                    {todayTripsPreview.length === 0 && (
-                      <View style={homeStyles.emptyBlock}>
-                        <Text style={homeStyles.emptyText}>
-                          Nenhuma viagem para hoje.
-                        </Text>
-                      </View>
-                    )}
+                {upcomingTripsPreview.length === 0 && (
+                  <View style={homeStyles.emptyBlock}>
+                    <Text style={homeStyles.emptyText}>
+                      Nenhuma próxima viagem.
+                    </Text>
                   </View>
+                )}
+              </View>
+            </>
+          )}
+        </View>
 
-                  <View style={homeStyles.tripGroup}>
-                    <View
-                      style={[
-                        styles.tripGroupHeader,
-                        homeStyles.tripGroupHeader,
-                      ]}
-                    >
-                      <Text style={styles.tripGroupTitle}>PRÓXIMAS</Text>
-                      <Text style={styles.tripGroupCount}>
-                        {upcomingTrips.length} viagem(ns)
-                      </Text>
-                    </View>
-
-                    {upcomingTripsPreview.map((trip) => (
-                      <TripCard
-                        key={trip.id}
-                        trip={trip}
-                        onPress={() => openTripDetails(trip.id)}
-                      />
-                    ))}
-
-                    {upcomingTripsPreview.length === 0 && (
-                      <View style={homeStyles.emptyBlock}>
-                        <Text style={homeStyles.emptyText}>
-                          Nenhuma próxima viagem.
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </>
-              )}
-            </View>
-
+        {!isLoading && (
+          <>
             <View style={[homeStyles.section, homeStyles.vehicleSection]}>
               <View style={[styles.sectionHeader, homeStyles.sectionHeader]}>
                 <Text style={styles.sectionTitle}>Veículos recentes</Text>
@@ -327,10 +324,6 @@ const homeStyles = StyleSheet.create({
   tripGroupHeader: {
     marginTop: 0,
     marginBottom: 8,
-  },
-  loadingContent: {
-    flexGrow: 1,
-    justifyContent: "center",
   },
   stateContainer: {
     alignItems: "center",
