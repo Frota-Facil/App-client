@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -36,6 +42,7 @@ import {
   updateMyRequest,
 } from "../../services/requests";
 import {
+  type AvailableVehiclesParams,
   getAvailableVehicles,
   VehicleRequestError,
 } from "../../services/vehicles";
@@ -69,6 +76,10 @@ const buildInfiniteTimeOptions = (options: string[]) =>
   Array.from({ length: TIME_PICKER_REPEAT_COUNT }, () => options).flat();
 const INFINITE_HOURS = buildInfiniteTimeOptions(HOURS);
 const INFINITE_MINUTES = buildInfiniteTimeOptions(MINUTES);
+const VEHICLE_AVAILABILITY_MESSAGE =
+  "Informe a data e os horários para verificar a disponibilidade dos veículos.";
+const VEHICLE_CONFLICT_MESSAGE =
+  "Este veículo já possui uma solicitação ou rota neste horário. Escolha outro veículo ou outro horário.";
 
 type TimeTarget = "start" | "end";
 type RequestField =
@@ -411,14 +422,49 @@ export default function MakeRequest() {
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
   const appliedVehicleId = useRef<string | null>(null);
+  const vehicleAvailabilityParams = useMemo<AvailableVehiclesParams | null>(() => {
+    if (!date || !startTime || !endTime) {
+      return null;
+    }
+
+    const predictedStartDate = parseLocalDateTimeToDate(date, startTime);
+    const predictedEndDate = parseLocalDateTimeToDate(date, endTime);
+    const predictedStartDateIso = parseLocalDateTimeToISOString(
+      date,
+      startTime
+    );
+    const predictedEndDateIso = parseLocalDateTimeToISOString(date, endTime);
+
+    if (
+      !predictedStartDate ||
+      !predictedEndDate ||
+      !predictedStartDateIso ||
+      !predictedEndDateIso ||
+      predictedEndDate <= predictedStartDate
+    ) {
+      return null;
+    }
+
+    return {
+      ignoredRequestId:
+        isEditMode && routeRequestId ? routeRequestId : undefined,
+      predictedEndDate: predictedEndDateIso,
+      predictedStartDate: predictedStartDateIso,
+    };
+  }, [date, endTime, isEditMode, routeRequestId, startTime]);
+  const hasVehicleAvailabilityWindow = Boolean(vehicleAvailabilityParams);
   const {
     data: availableVehicles = [],
     error: vehiclesQueryError,
     isLoading: isLoadingVehicles,
   } = useQuery({
-    queryKey: queryKeys.availableVehicles,
-    queryFn: () => getAvailableVehicles(token ?? ""),
-    enabled: Boolean(token),
+    queryKey: [
+      ...queryKeys.availableVehicles,
+      vehicleAvailabilityParams ?? "missing-period",
+    ],
+    queryFn: () =>
+      getAvailableVehicles(token ?? "", vehicleAvailabilityParams ?? undefined),
+    enabled: Boolean(token && vehicleAvailabilityParams),
   });
   const requestsQuery = useQuery({
     queryKey: queryKeys.requests,
@@ -457,6 +503,8 @@ export default function MakeRequest() {
   const vehicleError = vehiclesQueryError
     ? getVehicleLoadErrorMessage(vehiclesQueryError)
     : "";
+  const isVehiclePickerDisabled =
+    Boolean(vehicleError) || !hasVehicleAvailabilityWindow;
 
   const todayCalendarDate = getCalendarDateString();
   const currentCalendarDate =
@@ -576,6 +624,7 @@ export default function MakeRequest() {
       isEditMode ||
       isLoadingVehicles ||
       !routeVehicleId ||
+      !hasVehicleAvailabilityWindow ||
       appliedVehicleId.current === routeVehicleId
     ) {
       return;
@@ -596,7 +645,13 @@ export default function MakeRequest() {
     setSelectedVehicle(vehicle);
     setFieldErrors((current) => ({ ...current, vehicle: undefined }));
     setFormError("");
-  }, [availableVehicles, isEditMode, isLoadingVehicles, routeVehicleId]);
+  }, [
+    availableVehicles,
+    hasVehicleAvailabilityWindow,
+    isEditMode,
+    isLoadingVehicles,
+    routeVehicleId,
+  ]);
 
   const clearFieldError = (field: RequestField) => {
     setFieldErrors((current) => {
@@ -617,6 +672,36 @@ export default function MakeRequest() {
       [field]: message,
     }));
   };
+
+  useEffect(() => {
+    if (!hasVehicleAvailabilityWindow) {
+      if (selectedVehicle) {
+        setSelectedVehicle(null);
+      }
+
+      clearFieldError("vehicle");
+      return;
+    }
+
+    if (isLoadingVehicles || vehicleError || !selectedVehicle) {
+      return;
+    }
+
+    const isSelectedVehicleAvailable = availableVehicles.some(
+      (vehicle) => String(vehicle.id) === String(selectedVehicle.id)
+    );
+
+    if (!isSelectedVehicleAvailable) {
+      setSelectedVehicle(null);
+      setFieldError("vehicle", VEHICLE_CONFLICT_MESSAGE);
+    }
+  }, [
+    availableVehicles,
+    hasVehicleAvailabilityWindow,
+    isLoadingVehicles,
+    selectedVehicle,
+    vehicleError,
+  ]);
 
   const openDatePicker = () => {
     setSelectedDateString(
@@ -1080,14 +1165,24 @@ export default function MakeRequest() {
         <Text style={styles.label}>Veículo</Text>
         <View style={styles.vehicleSelectWrapper}>
           <VehicleAutocomplete
-            disabled={Boolean(vehicleError)}
+            disabled={isVehiclePickerDisabled}
+            emptyMessage="Nenhum veículo disponível para este horário."
             hasError={Boolean(fieldErrors.vehicle)}
             isLoading={isLoadingVehicles}
             onClearSelection={clearSelectedVehicle}
             onSelect={selectVehicle}
+            placeholder={
+              hasVehicleAvailabilityWindow
+                ? "Digite modelo ou placa"
+                : "Informe data e horários primeiro"
+            }
             selectedVehicle={selectedVehicle}
             vehicles={availableVehicles}
           />
+
+          {!hasVehicleAvailabilityWindow && !vehicleError ? (
+            <Text style={styles.fieldHint}>{VEHICLE_AVAILABILITY_MESSAGE}</Text>
+          ) : null}
 
           {vehicleError ? (
             <Text style={styles.fieldError}>{vehicleError}</Text>
@@ -1409,6 +1504,13 @@ const styles = StyleSheet.create({
 
   fieldError: {
     color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+
+  fieldHint: {
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: "600",
     marginTop: 8,

@@ -11,14 +11,20 @@ import {
 } from "react-native";
 
 import { colors } from "../../constants/colors";
-import { getVehicleDisplayName, type Vehicle } from "../../constants/data";
+import {
+  getVehicleDisplayName,
+  getVehicleStatusMeta,
+  type Vehicle,
+} from "../../constants/data";
 
 type VehicleAutocompleteProps = {
   disabled?: boolean;
   hasError?: boolean;
   isLoading?: boolean;
+  emptyMessage?: string;
   onClearSelection: () => void;
   onSelect: (vehicle: Vehicle) => void;
+  placeholder?: string;
   selectedVehicle: Vehicle | null;
   vehicles: Vehicle[];
 };
@@ -37,8 +43,10 @@ export function VehicleAutocomplete({
   disabled = false,
   hasError = false,
   isLoading = false,
+  emptyMessage = "Nenhum veículo disponível no momento.",
   onClearSelection,
   onSelect,
+  placeholder = "Digite modelo ou placa",
   selectedVehicle,
   vehicles,
 }: VehicleAutocompleteProps) {
@@ -144,9 +152,7 @@ export function VehicleAutocomplete({
           onBlur={handleBlur}
           onChangeText={handleChangeText}
           onFocus={handleFocus}
-          placeholder={
-            isLoading ? "Carregando veículos..." : "Digite modelo ou placa"
-          }
+          placeholder={isLoading ? "Carregando veículos..." : placeholder}
           placeholderTextColor={colors.textMuted}
           selectionColor={colors.primary}
           style={styles.input}
@@ -172,9 +178,7 @@ export function VehicleAutocomplete({
       {shouldShowSuggestions ? (
         <View style={[styles.suggestions, hasError && styles.suggestionsError]}>
           {vehicles.length === 0 ? (
-            <Text style={styles.emptyText}>
-              Nenhum veículo disponível no momento.
-            </Text>
+            <Text style={styles.emptyText}>{emptyMessage}</Text>
           ) : filteredVehicles.length === 0 ? (
             <Text style={styles.emptyText}>
               Nenhum veículo disponível encontrado.
@@ -190,6 +194,7 @@ export function VehicleAutocomplete({
                   selectedVehicle &&
                   String(selectedVehicle.id) === String(vehicle.id);
                 const isLast = index === filteredVehicles.length - 1;
+                const status = getVehicleStatusMeta(vehicle.status);
 
                 return (
                   <TouchableOpacity
@@ -206,7 +211,24 @@ export function VehicleAutocomplete({
                       <Text numberOfLines={1} style={styles.optionName}>
                         {getVehicleDisplayName(vehicle)}
                       </Text>
-                      <Text style={styles.optionPlate}>{vehicle.plate}</Text>
+                      <View style={styles.optionMetaRow}>
+                        <Text style={styles.optionPlate}>{vehicle.plate}</Text>
+                        <View
+                          style={[
+                            styles.optionStatusBadge,
+                            { backgroundColor: status.bg },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.optionStatusText,
+                              { color: status.color },
+                            ]}
+                          >
+                            {status.label}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
 
                     {isSelected ? (
@@ -335,7 +357,25 @@ const styles = StyleSheet.create({
   optionPlate: {
     color: colors.textSecondary,
     fontSize: 13,
+  },
+
+  optionMetaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     marginTop: 3,
+  },
+
+  optionStatusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+
+  optionStatusText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
 
   selectedIndicator: {
