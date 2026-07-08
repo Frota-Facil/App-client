@@ -11,6 +11,16 @@ export type CreateRequestData = {
 
 export type UpdateRequestData = Partial<CreateRequestData>;
 
+export type VehicleScheduleParams = {
+  date: string;
+  ignoredRequestId?: string;
+};
+
+export type VehicleScheduleSlot = {
+  predictedStartDate: string;
+  predictedEndDate: string;
+};
+
 export class RequestRequestError extends Error {
   status?: number;
   isConnectionError: boolean;
@@ -87,6 +97,49 @@ export const getMyRequests = async (
     }
 
     return requests as VehicleRequest[];
+  } catch (error) {
+    if (error instanceof RequestRequestError) {
+      throw error;
+    }
+
+    throw new RequestRequestError(fallbackMessage, response.status);
+  }
+};
+
+export const getVehicleSchedule = async (
+  token: string,
+  vehicleId: string,
+  params: VehicleScheduleParams
+): Promise<VehicleScheduleSlot[]> => {
+  const fallbackMessage = "Não foi possível carregar os horários deste veículo.";
+  const searchParams = new URLSearchParams();
+
+  searchParams.set("date", params.date);
+
+  if (params.ignoredRequestId) {
+    searchParams.set("ignoredRequestId", params.ignoredRequestId);
+  }
+
+  const response = await request(
+    `/requests/${encodeURIComponent(vehicleId)}/schedule?${searchParams.toString()}`,
+    token,
+    { method: "GET" },
+    "Não foi possível conectar ao servidor."
+  );
+
+  if (!response.ok) {
+    const message = await getResponseMessage(response, fallbackMessage);
+    throw new RequestRequestError(message, response.status);
+  }
+
+  try {
+    const schedule = await response.json();
+
+    if (!Array.isArray(schedule)) {
+      throw new RequestRequestError(fallbackMessage, response.status);
+    }
+
+    return schedule as VehicleScheduleSlot[];
   } catch (error) {
     if (error instanceof RequestRequestError) {
       throw error;

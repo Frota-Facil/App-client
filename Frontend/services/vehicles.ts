@@ -86,6 +86,7 @@ export const getVehicles = (token: string) =>
   loadVehicles(token, "/vehicles");
 
 export type AvailableVehiclesParams = {
+  date?: string;
   ignoredRequestId?: string;
   predictedEndDate?: string;
   predictedStartDate?: string;

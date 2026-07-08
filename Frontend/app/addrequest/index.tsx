@@ -37,9 +37,11 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   type CreateRequestData,
   createMyRequest,
+  getVehicleSchedule,
   getMyRequests,
   RequestRequestError,
   updateMyRequest,
+  type VehicleScheduleSlot,
 } from "../../services/requests";
 import {
   type AvailableVehiclesParams,
@@ -52,6 +54,7 @@ import {
   formatDateToPtBr,
   getCalendarDateString,
   getLocalDateTimeParts,
+  parseDateTime,
   parseLocalDateTimeToDate,
   parseLocalDateTimeToISOString,
 } from "../../utils/dateTime";
@@ -76,8 +79,9 @@ const buildInfiniteTimeOptions = (options: string[]) =>
   Array.from({ length: TIME_PICKER_REPEAT_COUNT }, () => options).flat();
 const INFINITE_HOURS = buildInfiniteTimeOptions(HOURS);
 const INFINITE_MINUTES = buildInfiniteTimeOptions(MINUTES);
+const SCHEDULE_HOURS = HOURS.map((hour) => `${hour}:00`);
 const VEHICLE_AVAILABILITY_MESSAGE =
-  "Informe a data e os horários para verificar a disponibilidade dos veículos.";
+  "Selecione a data primeiro.";
 const VEHICLE_CONFLICT_MESSAGE =
   "Este veículo já possui uma solicitação ou rota neste horário. Escolha outro veículo ou outro horário.";
 
@@ -275,6 +279,37 @@ const isPastDateTime = (
   return Boolean(selectedDateTime && selectedDateTime < currentMinute);
 };
 
+const addHours = (dateValue: Date, hours: number) =>
+  new Date(dateValue.getTime() + hours * 60 * 60 * 1000);
+
+const buildVehicleScheduleHours = (
+  dateString: string | null,
+  busySlots: VehicleScheduleSlot[]
+) => {
+  if (!dateString) {
+    return [];
+  }
+
+  return SCHEDULE_HOURS.map((label) => {
+    const hourStart = parseLocalDateTimeToDate(dateString, label);
+    const hourEnd = hourStart ? addHours(hourStart, 1) : null;
+    const isBusy = Boolean(
+      hourStart &&
+        hourEnd &&
+        busySlots.some((slot) => {
+          const busyStart = parseDateTime(slot.predictedStartDate);
+          const busyEnd = parseDateTime(slot.predictedEndDate);
+
+          return Boolean(
+            busyStart && busyEnd && hourStart < busyEnd && hourEnd > busyStart
+          );
+        })
+    );
+
+    return { isBusy, label };
+  });
+};
+
 const scrollTimeList = (
   listRef: React.RefObject<FlatList<string> | null>,
   options: string[],
@@ -423,36 +458,18 @@ export default function MakeRequest() {
   const wasTimeModalVisible = useRef(false);
   const appliedVehicleId = useRef<string | null>(null);
   const vehicleAvailabilityParams = useMemo<AvailableVehiclesParams | null>(() => {
-    if (!date || !startTime || !endTime) {
-      return null;
-    }
-
-    const predictedStartDate = parseLocalDateTimeToDate(date, startTime);
-    const predictedEndDate = parseLocalDateTimeToDate(date, endTime);
-    const predictedStartDateIso = parseLocalDateTimeToISOString(
-      date,
-      startTime
-    );
-    const predictedEndDateIso = parseLocalDateTimeToISOString(date, endTime);
-
-    if (
-      !predictedStartDate ||
-      !predictedEndDate ||
-      !predictedStartDateIso ||
-      !predictedEndDateIso ||
-      predictedEndDate <= predictedStartDate
-    ) {
+    if (!date) {
       return null;
     }
 
     return {
-      ignoredRequestId:
-        isEditMode && routeRequestId ? routeRequestId : undefined,
-      predictedEndDate: predictedEndDateIso,
-      predictedStartDate: predictedStartDateIso,
+      date,
     };
-  }, [date, endTime, isEditMode, routeRequestId, startTime]);
+  }, [date]);
   const hasVehicleAvailabilityWindow = Boolean(vehicleAvailabilityParams);
+  const selectedVehicleId = selectedVehicle ? String(selectedVehicle.id) : "";
+  const ignoredScheduleRequestId =
+    isEditMode && routeRequestId ? routeRequestId : undefined;
   const {
     data: availableVehicles = [],
     error: vehiclesQueryError,
@@ -466,6 +483,26 @@ export default function MakeRequest() {
       getAvailableVehicles(token ?? "", vehicleAvailabilityParams ?? undefined),
     enabled: Boolean(token && vehicleAvailabilityParams),
   });
+  const {
+    data: vehicleSchedule = [],
+    error: vehicleScheduleError,
+    isLoading: isLoadingVehicleSchedule,
+  } = useQuery({
+    queryKey:
+      date && selectedVehicleId
+        ? queryKeys.vehicleSchedule(
+            selectedVehicleId,
+            date,
+            ignoredScheduleRequestId
+          )
+        : [...queryKeys.vehicleSchedules, "missing"],
+    queryFn: () =>
+      getVehicleSchedule(token ?? "", selectedVehicleId, {
+        date: date ?? "",
+        ignoredRequestId: ignoredScheduleRequestId,
+      }),
+    enabled: Boolean(token && date && selectedVehicleId),
+  });
   const requestsQuery = useQuery({
     queryKey: queryKeys.requests,
     queryFn: () => getMyRequests(token ?? ""),
@@ -478,6 +515,7 @@ export default function MakeRequest() {
       queryClient.invalidateQueries({ queryKey: queryKeys.trips }),
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicles }),
       queryClient.invalidateQueries({ queryKey: queryKeys.availableVehicles }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicleSchedules }),
       queryClient.invalidateQueries({ queryKey: queryKeys.home }),
     ]);
   }, [queryClient]);
@@ -537,18 +575,24 @@ export default function MakeRequest() {
         },
       }
     : {};
+  const vehicleScheduleHours = useMemo(
+    () => buildVehicleScheduleHours(date, vehicleSchedule),
+    [date, vehicleSchedule]
+  );
 
   useEffect(() => {
     const hasUnauthorizedError =
       (vehiclesQueryError instanceof VehicleRequestError &&
         vehiclesQueryError.status === 401) ||
+      (vehicleScheduleError instanceof RequestRequestError &&
+        vehicleScheduleError.status === 401) ||
       (requestsQuery.error instanceof RequestRequestError &&
         requestsQuery.error.status === 401);
 
     if (hasUnauthorizedError) {
       void signOut();
     }
-  }, [requestsQuery.error, signOut, vehiclesQueryError]);
+  }, [requestsQuery.error, signOut, vehicleScheduleError, vehiclesQueryError]);
 
   useEffect(() => {
     if (!isEditMode) {
@@ -1056,6 +1100,38 @@ export default function MakeRequest() {
           </View>
         </Modal>
 
+        {/* VEÍCULO */}
+        <Text style={styles.label}>Veículo</Text>
+        <View style={styles.vehicleSelectWrapper}>
+          <VehicleAutocomplete
+            disabled={isVehiclePickerDisabled}
+            emptyMessage="Nenhum veículo disponível para solicitação."
+            hasError={Boolean(fieldErrors.vehicle)}
+            isLoading={isLoadingVehicles}
+            onClearSelection={clearSelectedVehicle}
+            onSelect={selectVehicle}
+            placeholder={
+              hasVehicleAvailabilityWindow
+                ? "Digite modelo ou placa"
+                : "Selecione a data primeiro"
+            }
+            selectedVehicle={selectedVehicle}
+            vehicles={availableVehicles}
+          />
+
+          {!hasVehicleAvailabilityWindow && !vehicleError ? (
+            <Text style={styles.fieldHint}>{VEHICLE_AVAILABILITY_MESSAGE}</Text>
+          ) : null}
+
+          {vehicleError ? (
+            <Text style={styles.fieldError}>{vehicleError}</Text>
+          ) : null}
+
+          {fieldErrors.vehicle ? (
+            <Text style={styles.fieldError}>{fieldErrors.vehicle}</Text>
+          ) : null}
+        </View>
+
         {/* HORÁRIOS */}
         <View style={styles.row}>
           <View style={styles.flex}>
@@ -1161,37 +1237,53 @@ export default function MakeRequest() {
           </View>
         </Modal>
 
-        {/* VEÍCULO */}
-        <Text style={styles.label}>Veículo</Text>
-        <View style={styles.vehicleSelectWrapper}>
-          <VehicleAutocomplete
-            disabled={isVehiclePickerDisabled}
-            emptyMessage="Nenhum veículo disponível para este horário."
-            hasError={Boolean(fieldErrors.vehicle)}
-            isLoading={isLoadingVehicles}
-            onClearSelection={clearSelectedVehicle}
-            onSelect={selectVehicle}
-            placeholder={
-              hasVehicleAvailabilityWindow
-                ? "Digite modelo ou placa"
-                : "Informe data e horários primeiro"
-            }
-            selectedVehicle={selectedVehicle}
-            vehicles={availableVehicles}
-          />
+        {date ? (
+          <View style={styles.scheduleSection}>
+            <Text style={styles.scheduleTitle}>Horários do veículo</Text>
 
-          {!hasVehicleAvailabilityWindow && !vehicleError ? (
-            <Text style={styles.fieldHint}>{VEHICLE_AVAILABILITY_MESSAGE}</Text>
-          ) : null}
-
-          {vehicleError ? (
-            <Text style={styles.fieldError}>{vehicleError}</Text>
-          ) : null}
-
-          {fieldErrors.vehicle ? (
-            <Text style={styles.fieldError}>{fieldErrors.vehicle}</Text>
-          ) : null}
-        </View>
+            {!selectedVehicle ? (
+              <Text style={styles.scheduleMessage}>
+                Selecione um veículo para visualizar os horários disponíveis.
+              </Text>
+            ) : isLoadingVehicleSchedule ? (
+              <View style={styles.scheduleLoading}>
+                <ActivityIndicator color={colors.primary} size="small" />
+                <Text style={styles.scheduleMessage}>
+                  Carregando horários do veículo...
+                </Text>
+              </View>
+            ) : vehicleScheduleError ? (
+              <Text style={styles.scheduleError}>
+                Não foi possível carregar os horários deste veículo.
+              </Text>
+            ) : (
+              <View style={styles.scheduleGrid}>
+                {vehicleScheduleHours.map((hour) => (
+                  <View
+                    key={hour.label}
+                    style={[
+                      styles.scheduleChip,
+                      hour.isBusy
+                        ? styles.scheduleChipBusy
+                        : styles.scheduleChipAvailable,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scheduleChipText,
+                        hour.isBusy
+                          ? styles.scheduleChipTextBusy
+                          : styles.scheduleChipTextAvailable,
+                      ]}
+                    >
+                      {hour.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        ) : null}
 
         {/* DESTINO */}
         <Text style={styles.label}>Destino</Text>
@@ -1531,6 +1623,77 @@ const styles = StyleSheet.create({
 
   flex: {
     flex: 1,
+  },
+
+  scheduleSection: {
+    marginTop: 14,
+    zIndex: 1,
+  },
+
+  scheduleTitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  scheduleMessage: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+
+  scheduleError: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+
+  scheduleLoading: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  scheduleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  scheduleChip: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 32,
+    minWidth: 58,
+    paddingHorizontal: 10,
+  },
+
+  scheduleChipAvailable: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+
+  scheduleChipBusy: {
+    backgroundColor: "#D1D5DB",
+    borderColor: "#C4CAD4",
+  },
+
+  scheduleChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  scheduleChipTextAvailable: {
+    color: colors.textPrimary,
+  },
+
+  scheduleChipTextBusy: {
+    color: "#6B7280",
   },
 
   buttons: {
