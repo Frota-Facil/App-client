@@ -1,9 +1,11 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-const API_PORT = 3333;
-const WEB_BASE_URL = `http://localhost:${API_PORT}`;
-const ENV_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const CORE_PORT = 3333;
+const TRACKING_PORT = 8080;
+
+const ENV_CORE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const ENV_TRACKING_URL = process.env.EXPO_PUBLIC_TRACKING_API_BASE_URL;
 
 type ExpoHostConstants = {
   expoConfig?: {
@@ -31,14 +33,22 @@ const getExpoHostUri = () => {
   );
 };
 
-const getNativeBaseURL = () => {
+const getHost = () => {
   const hostUri = getExpoHostUri();
-  const host = hostUri?.split(":")[0];
+  return hostUri?.split(":")[0] ?? "localhost";
+};
 
-  return `http://${host || "localhost"}:${API_PORT}`;
+const createBaseURL = (port: number) => {
+  if (Platform.OS === "web") {
+    return `http://localhost:${port}`;
+  }
+
+  return `http://${getHost()}:${port}`;
 };
 
 export const apiConfig = {
-  baseURL:
-    ENV_BASE_URL || (Platform.OS === "web" ? WEB_BASE_URL : getNativeBaseURL()),
+  baseURL: ENV_CORE_URL ?? createBaseURL(CORE_PORT),
+
+  trackingBaseURL:
+    ENV_TRACKING_URL ?? createBaseURL(TRACKING_PORT),
 };
