@@ -9,7 +9,7 @@ import {
   type TrackingItem,
 } from "../storage/trackingQueue";
 import {
-  sendTracking as postTracking,
+  sendTrackingPoint,
   type TrackingPoint,
 } from "./tracking";
 
@@ -23,13 +23,13 @@ const isOnline = (netInfo: NetInfoState) =>
 const getIsOnline = async () => isOnline(await NetInfo.fetch());
 
 const toTrackingPoint = (tracking: TrackingItem): TrackingPoint => ({
-  xCoordinate: tracking.xCoordinate,
-  yCoordinate: tracking.yCoordinate,
-  created_at: tracking.created_at,
+  latitude: tracking.latitude,
+  longitude: tracking.longitude,
+  capturedAt: tracking.capturedAt,
 });
 
 const sendQueuedTracking = (tracking: TrackingItem) =>
-  postTracking(tracking.routeId, toTrackingPoint(tracking));
+  sendTrackingPoint(tracking.routeId, toTrackingPoint(tracking));
 
 const syncTrackingQueueInternal = async () => {
   if (!(await getIsOnline())) {

@@ -44,9 +44,9 @@ const createTrackingItem = (
 
   return {
     routeId,
-    xCoordinate: longitude,
-    yCoordinate: latitude,
-    created_at: new Date(location.timestamp).toISOString(),
+    latitude,
+    longitude,
+    capturedAt: new Date(location.timestamp).toISOString(),
   };
 };
 
@@ -68,8 +68,8 @@ const sendCurrentLocation = async (routeId: string) => {
 const locationTaskOptions: Location.LocationTaskOptions = {
   accuracy: Location.Accuracy.High,
   activityType: Location.ActivityType.AutomotiveNavigation,
-  distanceInterval: 10,
-  timeInterval: 1000 * 15,
+  distanceInterval: 0,
+  timeInterval: 10 * 60 * 1000,
   deferredUpdatesDistance: 0,
   deferredUpdatesInterval: 0,
   foregroundService: {
@@ -204,4 +204,3 @@ if (!TaskManager.isTaskDefined(TRACKING_LOCATION_TASK)) {
     }
   );
 }
-

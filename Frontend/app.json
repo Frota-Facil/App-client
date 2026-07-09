@@ -12,8 +12,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "O aplicativo utiliza sua localização durante a viagem.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "O aplicativo utiliza sua localização para acompanhar a viagem mesmo quando estiver em segundo plano."
+        "NSLocationWhenInUseUsageDescription": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota mesmo em segundo plano."
       }
     },
     "android": {
@@ -45,9 +45,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "O aplicativo utiliza sua localização durante a viagem.",
-          "locationAlwaysAndWhenInUsePermission": "O aplicativo utiliza sua localização para acompanhar a viagem mesmo quando estiver em segundo plano.",
-          "locationAlwaysPermission": "O aplicativo utiliza sua localização para acompanhar a viagem mesmo quando estiver em segundo plano.",
+          "locationWhenInUsePermission": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota.",
+          "locationAlwaysAndWhenInUsePermission": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota mesmo em segundo plano.",
+          "locationAlwaysPermission": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota mesmo em segundo plano.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true

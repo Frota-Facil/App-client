@@ -4,9 +4,9 @@ const STORAGE_KEY = "@tracking_queue";
 
 export type TrackingItem = {
   routeId: string;
-  xCoordinate: number;
-  yCoordinate: number;
-  created_at: string;
+  latitude: number;
+  longitude: number;
+  capturedAt: string;
 };
 
 let queueLock: Promise<void> = Promise.resolve();
@@ -21,12 +21,12 @@ const isTrackingItem = (value: unknown): value is TrackingItem => {
   return (
     typeof item.routeId === "string" &&
     item.routeId.trim().length > 0 &&
-    typeof item.xCoordinate === "number" &&
-    Number.isFinite(item.xCoordinate) &&
-    typeof item.yCoordinate === "number" &&
-    Number.isFinite(item.yCoordinate) &&
-    typeof item.created_at === "string" &&
-    item.created_at.trim().length > 0
+    typeof item.latitude === "number" &&
+    Number.isFinite(item.latitude) &&
+    typeof item.longitude === "number" &&
+    Number.isFinite(item.longitude) &&
+    typeof item.capturedAt === "string" &&
+    item.capturedAt.trim().length > 0
   );
 };
 

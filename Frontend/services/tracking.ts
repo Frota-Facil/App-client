@@ -1,11 +1,11 @@
-import { apiConfig } from "../config/api";
+import { trackingApiConfig } from "../config/api";
 
 const TRACKING_REQUEST_TIMEOUT_MS = 1000 * 10;
 
 export type TrackingPoint = {
-  xCoordinate: number;
-  yCoordinate: number;
-  created_at: string;
+  latitude: number;
+  longitude: number;
+  capturedAt: string;
 };
 
 export class TrackingRequestError extends Error {
@@ -24,18 +24,19 @@ export class TrackingRequestError extends Error {
   }
 }
 
-export async function sendTracking(
+export const sendTrackingPoint = async (
   routeId: string,
   point: TrackingPoint,
   timeoutMs = TRACKING_REQUEST_TIMEOUT_MS
-): Promise<void> {
+) => {
+  const encodedRouteId = encodeURIComponent(routeId);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
 
   try {
     response = await fetch(
-      `${apiConfig.trackingBaseURL}/routes/${encodeURIComponent(routeId)}/tracking`,
+      `${trackingApiConfig.baseURL}/routes/${encodedRouteId}/tracking`,
       {
         method: "POST",
         headers: {
@@ -66,4 +67,4 @@ export async function sendTracking(
       response.status
     );
   }
-}
+};

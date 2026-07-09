@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import {
@@ -33,6 +32,7 @@ import {
   type Trip,
 } from "../../constants/trips";
 import { useAuth } from "../../contexts/AuthContext";
+import { useTripTracking } from "../../hooks/useTripTracking";
 import {
   finishMyTrip,
   getMyTrip,
@@ -40,12 +40,6 @@ import {
   startMyTrip,
   TripRequestError,
 } from "../../services/trips";
-import {
-  requestRouteTrackingPermissions,
-  startRouteTracking,
-  stopRouteTracking,
-  TrackingLocationError,
-} from "../../services/trackingLocation";
 import {
   queryKeys,
   queryRefreshIntervals,
@@ -86,10 +80,6 @@ const getActionErrorMessage = (
   error: unknown,
   action: "iniciar" | "finalizar"
 ) => {
-  if (error instanceof TrackingLocationError) {
-    return error.message;
-  }
-
   if (error instanceof TripRequestError) {
     if (error.status === 403) {
       return "Você não tem permissão para realizar esta ação.";
@@ -154,7 +144,7 @@ export default function TripDetailsScreen() {
   }>();
   const routeId = Array.isArray(idParam) ? idParam[0] : idParam;
   const { signOut, token } = useAuth();
-  const startedTrackingRouteRef = useRef<string | null>(null);
+  const { startTracking, stopTracking } = useTripTracking();
   const tabBarHeight = getTabBarHeight(insets.bottom);
   const [actionError, setActionError] = useState("");
   const [showFinishModal, setShowFinishModal] = useState(false);
@@ -195,21 +185,29 @@ export default function TripDetailsScreen() {
   }, [loadQueryError, signOut]);
 
   useEffect(() => {
-    if (!routeId || trip?.routeStatus !== "STARTED") {
+    if (!routeId) {
+      stopTracking();
       return;
     }
 
-    if (startedTrackingRouteRef.current === routeId) {
-      return;
+    if (trip?.routeStatus === "STARTED") {
+      let isCurrent = true;
+
+      void startTracking(routeId).then((didStartTracking) => {
+        if (isCurrent && !didStartTracking) {
+          setActionError(
+            "Não foi possível ativar o envio de localização."
+          );
+        }
+      });
+
+      return () => {
+        isCurrent = false;
+      };
     }
 
-    startedTrackingRouteRef.current = routeId;
-
-    void startRouteTracking(routeId).catch((error) => {
-      startedTrackingRouteRef.current = null;
-      setActionError(getActionErrorMessage(error, "iniciar"));
-    });
-  }, [routeId, trip?.routeStatus]);
+    stopTracking();
+  }, [routeId, startTracking, stopTracking, trip?.routeStatus]);
 
   const invalidateTripQueries = useCallback(async () => {
     await Promise.all([
@@ -262,15 +260,15 @@ export default function TripDetailsScreen() {
     }
 
     try {
-      await requestRouteTrackingPermissions();
-      await startTripMutation.mutateAsync();
-      startedTrackingRouteRef.current = routeId;
-      await startRouteTracking(routeId);
-    } catch (error) {
-      if (error instanceof TrackingLocationError) {
-        startedTrackingRouteRef.current = null;
-      }
+      const updatedTrip = await startTripMutation.mutateAsync();
+      const didStartTracking = await startTracking(updatedTrip.id || routeId);
 
+      if (!didStartTracking) {
+        setActionError(
+          "Viagem iniciada, mas não foi possível ativar o envio de localização."
+        );
+      }
+    } catch (error) {
       if (error instanceof TripRequestError && error.status === 401) {
         await signOut();
         return;
@@ -306,14 +304,7 @@ export default function TripDetailsScreen() {
 
     try {
       await finishTripMutation.mutateAsync(trimmedDescription);
-      startedTrackingRouteRef.current = null;
-
-      try {
-        await stopRouteTracking(routeId);
-      } catch (error) {
-        console.warn("Não foi possível parar o tracking da viagem.", error);
-      }
-
+      stopTracking();
       setShowFinishModal(false);
       setDescription("");
       setActionError("");

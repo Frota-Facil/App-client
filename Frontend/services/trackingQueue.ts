@@ -13,13 +13,13 @@ export type TrackingQueue = {
 };
 
 const toTrackingPoint = ({
-  xCoordinate,
-  yCoordinate,
-  created_at,
+  latitude,
+  longitude,
+  capturedAt,
 }: TrackingItem): TrackingPoint => ({
-  xCoordinate,
-  yCoordinate,
-  created_at,
+  latitude,
+  longitude,
+  capturedAt,
 });
 
 const toTrackingItem = (
@@ -92,4 +92,3 @@ export async function clearTrackingQueue(
     queue.filter((tracking) => tracking.routeId !== routeId)
   );
 }
-
