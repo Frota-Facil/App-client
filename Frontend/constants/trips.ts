@@ -50,12 +50,12 @@ export const getTripStatusMeta = (routeStatus: RouteStatus) => {
     case "in_progress":
       return {
         label: "Em andamento",
-        bg: "#CCFBF1",
-        color: "#0F766E",
+        bg: "#DBEAFE",
+        color: "#1D4ED8",
       };
     case "finished":
       return {
-        label: "Finalizada",
+        label: "Concluída",
         bg: "#DCFCE7",
         color: "#16A34A",
       };
@@ -69,6 +69,20 @@ export const getTripStatusMeta = (routeStatus: RouteStatus) => {
 };
 
 export const parseTripDate = parseDateTime;
+
+export const getTripCardDateValue = (trip: Trip) => {
+  const status = getTripStatus(trip.routeStatus);
+
+  if (status === "in_progress") {
+    return trip.startedAt ?? trip.predictedStartDate;
+  }
+
+  if (status === "finished") {
+    return trip.finishedAt ?? trip.startedAt ?? trip.predictedStartDate;
+  }
+
+  return trip.predictedStartDate;
+};
 
 export const formatTripDate = (value: string) => {
   const date = parseTripDate(value);
@@ -141,4 +155,29 @@ export const sortTripsByStartDate = (trips: Trip[]) =>
     const secondDate = parseTripDate(second.predictedStartDate)?.getTime() ?? 0;
 
     return firstDate - secondDate;
+  });
+
+const tripStatusPriority: Record<TripStatus, number> = {
+  in_progress: 0,
+  scheduled: 1,
+  finished: 2,
+};
+
+export const sortTripsByStatusAndDateDesc = (trips: Trip[]) =>
+  [...trips].sort((first, second) => {
+    const firstStatus = getTripStatus(first.routeStatus);
+    const secondStatus = getTripStatus(second.routeStatus);
+    const statusDiff =
+      tripStatusPriority[firstStatus] - tripStatusPriority[secondStatus];
+
+    if (statusDiff !== 0) {
+      return statusDiff;
+    }
+
+    const firstDate =
+      parseTripDate(getTripCardDateValue(first))?.getTime() ?? 0;
+    const secondDate =
+      parseTripDate(getTripCardDateValue(second))?.getTime() ?? 0;
+
+    return secondDate - firstDate;
   });

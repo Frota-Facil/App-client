@@ -1,6 +1,19 @@
 export const queryKeys = {
   vehicles: ["vehicles"] as const,
   availableVehicles: ["vehicles", "available"] as const,
+  vehicleSchedules: ["vehicles", "schedule"] as const,
+  vehicleSchedule: (
+    vehicleId: string,
+    date: string,
+    ignoredRequestId?: string
+  ) =>
+    [
+      "vehicles",
+      "schedule",
+      vehicleId,
+      date,
+      ignoredRequestId ?? "current",
+    ] as const,
   requests: ["requests"] as const,
   notifications: ["notifications"] as const,
   trips: ["trips"] as const,

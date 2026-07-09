@@ -4,6 +4,7 @@ import { styles } from "../../styles/globalStyles";
 import {
   formatTripDate,
   formatTripTime,
+  getTripCardDateValue,
   getTripStatusMeta,
   type Trip,
 } from "../../constants/trips";
@@ -15,6 +16,12 @@ type TripCardProps = {
 
 export const TripCard = ({ trip, onPress }: TripCardProps) => {
   const status = getTripStatusMeta(trip.routeStatus);
+  const cardDate = getTripCardDateValue(trip);
+  const destination = trip.destination?.trim() || "Destino não informado";
+  const vehicleText =
+    trip.vehicle?.model && trip.vehicle?.plate
+      ? `${trip.vehicle.model} · ${trip.vehicle.plate}`
+      : "Veículo não informado";
 
   return (
     <TouchableOpacity
@@ -29,7 +36,7 @@ export const TripCard = ({ trip, onPress }: TripCardProps) => {
             color="#1B3A5C"
             style={styles.tripLocationIcon}
           />
-          <Text style={styles.tripDestination}>{trip.destination}</Text>
+          <Text style={styles.tripDestination}>{destination}</Text>
         </View>
 
         <View style={[styles.tripStatusBadge, { backgroundColor: status.bg }]}>
@@ -46,13 +53,10 @@ export const TripCard = ({ trip, onPress }: TripCardProps) => {
         <View style={styles.tripInfoItem}>
           <Clock3 size={14} color="#6B7280" />
           <Text style={styles.tripInfoText}>
-            {formatTripDate(trip.predictedStartDate)} ·{" "}
-            {formatTripTime(trip.predictedStartDate)}
+            {formatTripDate(cardDate)} · {formatTripTime(cardDate)}
           </Text>
         </View>
-        <Text style={styles.tripInfoText}>
-          {trip.vehicle.model} · {trip.vehicle.plate}
-        </Text>
+        <Text style={styles.tripInfoText}>{vehicleText}</Text>
       </View>
     </TouchableOpacity>
   );

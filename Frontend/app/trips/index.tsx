@@ -16,8 +16,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { getTabBarContentPadding } from "../../components/layout/TabBar";
 import { colors } from "../../constants/colors";
 import {
-  isTripFinished,
-  sortTripsByStartDate,
+  sortTripsByStatusAndDateDesc,
 } from "../../constants/trips";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMyTrips, TripRequestError } from "../../services/trips";
@@ -76,10 +75,7 @@ export default function TripsScreen() {
   }, [error, signOut]);
 
   const trips = useMemo(
-    () =>
-      sortTripsByStartDate(
-        tripsData.filter((trip) => !isTripFinished(trip))
-      ),
+    () => sortTripsByStatusAndDateDesc(tripsData),
     [tripsData]
   );
   const errorMessage = error ? getLoadErrorMessage(error) : "";
@@ -113,7 +109,7 @@ export default function TripsScreen() {
       return (
         <View style={screenStyles.stateContainer}>
           <Text style={screenStyles.stateText}>
-            Você ainda não possui viagens.
+            Você ainda não possui viagens agendadas, em andamento ou concluídas.
           </Text>
         </View>
       );

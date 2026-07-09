@@ -14,6 +14,10 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthRequestError } from "../services/auth";
 
+const inputTextColor = "#111827";
+const inputPlaceholderColor = "#6B7280";
+const inputSelectionColor = "#1B3A5C";
+
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
@@ -94,13 +98,17 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
-          placeholder="nome@municipio.gov.br"
+          placeholder="nome@sif.com"
+          placeholderTextColor={inputPlaceholderColor}
+          selectionColor={inputSelectionColor}
+          cursorColor={inputSelectionColor}
           style={{
             backgroundColor: "#F9FAFB",
             borderRadius: 12,
             padding: 14,
             borderWidth: 1,
             borderColor: "#E5E7EB",
+            color: inputTextColor,
             marginBottom: 16,
           }}
         />
@@ -116,6 +124,9 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             placeholder="Digite sua senha"
+            placeholderTextColor={inputPlaceholderColor}
+            selectionColor={inputSelectionColor}
+            cursorColor={inputSelectionColor}
             style={{
               backgroundColor: "#F9FAFB",
               borderRadius: 12,
@@ -123,6 +134,7 @@ export default function LoginScreen() {
               paddingRight: 48,
               borderWidth: 1,
               borderColor: "#E5E7EB",
+              color: inputTextColor,
             }}
           />
 

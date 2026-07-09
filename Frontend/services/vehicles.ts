@@ -15,12 +15,25 @@ export class VehicleRequestError extends Error {
 
 const loadVehicles = async (
   token: string,
-  path: "/vehicles" | "/vehicles/available"
+  path: "/vehicles" | "/vehicles/available",
+  params?: Record<string, string | undefined>
 ): Promise<Vehicle[]> => {
   let response: Response;
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value) {
+      searchParams.set(key, value);
+    }
+  });
+
+  const queryString = searchParams.toString();
+  const requestUrl = `${apiConfig.baseURL}${path}${
+    queryString ? `?${queryString}` : ""
+  }`;
 
   try {
-    response = await fetch(`${apiConfig.baseURL}${path}`, {
+    response = await fetch(requestUrl, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -72,5 +85,14 @@ const loadVehicles = async (
 export const getVehicles = (token: string) =>
   loadVehicles(token, "/vehicles");
 
-export const getAvailableVehicles = (token: string) =>
-  loadVehicles(token, "/vehicles/available");
+export type AvailableVehiclesParams = {
+  date?: string;
+  ignoredRequestId?: string;
+  predictedEndDate?: string;
+  predictedStartDate?: string;
+};
+
+export const getAvailableVehicles = (
+  token: string,
+  params?: AvailableVehiclesParams
+) => loadVehicles(token, "/vehicles/available", params);

@@ -36,6 +36,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   finishMyTrip,
   getMyTrip,
+  getMyTrips,
   startMyTrip,
   TripRequestError,
 } from "../../services/trips";
@@ -60,6 +61,8 @@ import {
 const TRIP_ACTION_FOOTER_HEIGHT = 86;
 const START_WINDOW_ERROR_MESSAGE =
   "A viagem só pode ser iniciada até 15 minutos antes do horário previsto.";
+const ACTIVE_ROUTE_ERROR_MESSAGE =
+  "Você já possui uma rota em andamento. Finalize a rota atual antes de iniciar outra.";
 
 const getLoadErrorMessage = (error: unknown) => {
   if (error instanceof TripRequestError) {
@@ -102,8 +105,11 @@ const getActionErrorMessage = (
     ) {
       const message = error.message.trim();
 
+      if (message) {
+        return message;
+      }
+
       if (
-        message &&
         /15|minut|antes|hor.rio|iniciad|iniciar|permitid|previst/i.test(
           message
         )
@@ -165,6 +171,16 @@ export default function TripDetailsScreen() {
     queryKey: tripQueryKey,
     queryFn: () => getMyTrip(token ?? "", routeId ?? ""),
     enabled: Boolean(token && routeId),
+    staleTime: 1000 * 5,
+    refetchInterval: isFocused ? queryRefreshIntervals.standard : false,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
+  });
+  const { data: trips = [] } = useQuery({
+    queryKey: queryKeys.trips,
+    queryFn: () => getMyTrips(token ?? ""),
+    enabled: Boolean(token),
     staleTime: 1000 * 5,
     refetchInterval: isFocused ? queryRefreshIntervals.standard : false,
     refetchIntervalInBackground: false,
@@ -240,6 +256,11 @@ export default function TripDetailsScreen() {
 
     setActionError("");
 
+    if (hasAnotherActiveTrip) {
+      setActionError(ACTIVE_ROUTE_ERROR_MESSAGE);
+      return;
+    }
+
     try {
       await requestRouteTrackingPermissions();
       await startTripMutation.mutateAsync();
@@ -311,6 +332,12 @@ export default function TripDetailsScreen() {
     trip && trip.routeStatus !== "STARTED" && trip.routeStatus !== "FINISHED"
   );
   const isInProgress = trip?.routeStatus === "STARTED";
+  const activeTrip = trips.find(
+    (currentTrip) => currentTrip.routeStatus === "STARTED"
+  );
+  const hasAnotherActiveTrip = Boolean(
+    isScheduled && activeTrip && activeTrip.id !== trip?.id
+  );
   const hasAction = isScheduled || isInProgress;
   const status = trip ? getTripStatusMeta(trip.routeStatus) : null;
 
@@ -449,7 +476,8 @@ export default function TripDetailsScreen() {
             }
             style={[
               localStyles.actionButton,
-              isStarting && localStyles.actionButtonDisabled,
+              (isStarting || hasAnotherActiveTrip) &&
+                localStyles.actionButtonDisabled,
             ]}
           >
             {isStarting ? (

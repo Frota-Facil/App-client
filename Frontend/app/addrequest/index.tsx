@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,19 +28,23 @@ import {
   type DateData,
 } from "react-native-calendars";
 
+import { VehicleAutocomplete } from "../../components/forms/VehicleAutocomplete";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { colors } from "../../constants/colors";
-import { getVehicleDisplayName, type Vehicle } from "../../constants/data";
+import type { Vehicle } from "../../constants/data";
 import type { VehicleRequest } from "../../constants/requests";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   type CreateRequestData,
   createMyRequest,
+  getVehicleSchedule,
   getMyRequests,
   RequestRequestError,
   updateMyRequest,
+  type VehicleScheduleSlot,
 } from "../../services/requests";
 import {
+  type AvailableVehiclesParams,
   getAvailableVehicles,
   VehicleRequestError,
 } from "../../services/vehicles";
@@ -44,6 +54,7 @@ import {
   formatDateToPtBr,
   getCalendarDateString,
   getLocalDateTimeParts,
+  parseDateTime,
   parseLocalDateTimeToDate,
   parseLocalDateTimeToISOString,
 } from "../../utils/dateTime";
@@ -68,6 +79,11 @@ const buildInfiniteTimeOptions = (options: string[]) =>
   Array.from({ length: TIME_PICKER_REPEAT_COUNT }, () => options).flat();
 const INFINITE_HOURS = buildInfiniteTimeOptions(HOURS);
 const INFINITE_MINUTES = buildInfiniteTimeOptions(MINUTES);
+const SCHEDULE_HOURS = HOURS.map((hour) => `${hour}:00`);
+const VEHICLE_AVAILABILITY_MESSAGE =
+  "Selecione a data primeiro.";
+const VEHICLE_CONFLICT_MESSAGE =
+  "Este veículo já possui uma solicitação ou rota neste horário. Escolha outro veículo ou outro horário.";
 
 type TimeTarget = "start" | "end";
 type RequestField =
@@ -263,8 +279,36 @@ const isPastDateTime = (
   return Boolean(selectedDateTime && selectedDateTime < currentMinute);
 };
 
-const getVehicleSelectLabel = (vehicle: Vehicle | null) =>
-  vehicle ? `${getVehicleDisplayName(vehicle)} - ${vehicle.plate}` : "";
+const addHours = (dateValue: Date, hours: number) =>
+  new Date(dateValue.getTime() + hours * 60 * 60 * 1000);
+
+const buildVehicleScheduleHours = (
+  dateString: string | null,
+  busySlots: VehicleScheduleSlot[]
+) => {
+  if (!dateString) {
+    return [];
+  }
+
+  return SCHEDULE_HOURS.map((label) => {
+    const hourStart = parseLocalDateTimeToDate(dateString, label);
+    const hourEnd = hourStart ? addHours(hourStart, 1) : null;
+    const isBusy = Boolean(
+      hourStart &&
+        hourEnd &&
+        busySlots.some((slot) => {
+          const busyStart = parseDateTime(slot.predictedStartDate);
+          const busyEnd = parseDateTime(slot.predictedEndDate);
+
+          return Boolean(
+            busyStart && busyEnd && hourStart < busyEnd && hourEnd > busyStart
+          );
+        })
+    );
+
+    return { isBusy, label };
+  });
+};
 
 const scrollTimeList = (
   listRef: React.RefObject<FlatList<string> | null>,
@@ -409,19 +453,55 @@ export default function MakeRequest() {
   const [requestLoadError, setRequestLoadError] = useState("");
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<RequestFieldErrors>({});
-  const [showVehicleSelect, setShowVehicleSelect] = useState(false);
   const hourListRef = useRef<FlatList<string>>(null);
   const minuteListRef = useRef<FlatList<string>>(null);
   const wasTimeModalVisible = useRef(false);
   const appliedVehicleId = useRef<string | null>(null);
+  const vehicleAvailabilityParams = useMemo<AvailableVehiclesParams | null>(() => {
+    if (!date) {
+      return null;
+    }
+
+    return {
+      date,
+    };
+  }, [date]);
+  const hasVehicleAvailabilityWindow = Boolean(vehicleAvailabilityParams);
+  const selectedVehicleId = selectedVehicle ? String(selectedVehicle.id) : "";
+  const ignoredScheduleRequestId =
+    isEditMode && routeRequestId ? routeRequestId : undefined;
   const {
     data: availableVehicles = [],
     error: vehiclesQueryError,
     isLoading: isLoadingVehicles,
   } = useQuery({
-    queryKey: queryKeys.availableVehicles,
-    queryFn: () => getAvailableVehicles(token ?? ""),
-    enabled: Boolean(token),
+    queryKey: [
+      ...queryKeys.availableVehicles,
+      vehicleAvailabilityParams ?? "missing-period",
+    ],
+    queryFn: () =>
+      getAvailableVehicles(token ?? "", vehicleAvailabilityParams ?? undefined),
+    enabled: Boolean(token && vehicleAvailabilityParams),
+  });
+  const {
+    data: vehicleSchedule = [],
+    error: vehicleScheduleError,
+    isLoading: isLoadingVehicleSchedule,
+  } = useQuery({
+    queryKey:
+      date && selectedVehicleId
+        ? queryKeys.vehicleSchedule(
+            selectedVehicleId,
+            date,
+            ignoredScheduleRequestId
+          )
+        : [...queryKeys.vehicleSchedules, "missing"],
+    queryFn: () =>
+      getVehicleSchedule(token ?? "", selectedVehicleId, {
+        date: date ?? "",
+        ignoredRequestId: ignoredScheduleRequestId,
+      }),
+    enabled: Boolean(token && date && selectedVehicleId),
   });
   const requestsQuery = useQuery({
     queryKey: queryKeys.requests,
@@ -435,6 +515,7 @@ export default function MakeRequest() {
       queryClient.invalidateQueries({ queryKey: queryKeys.trips }),
       queryClient.invalidateQueries({ queryKey: queryKeys.vehicles }),
       queryClient.invalidateQueries({ queryKey: queryKeys.availableVehicles }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicleSchedules }),
       queryClient.invalidateQueries({ queryKey: queryKeys.home }),
     ]);
   }, [queryClient]);
@@ -460,8 +541,9 @@ export default function MakeRequest() {
   const vehicleError = vehiclesQueryError
     ? getVehicleLoadErrorMessage(vehiclesQueryError)
     : "";
+  const isVehiclePickerDisabled =
+    Boolean(vehicleError) || !hasVehicleAvailabilityWindow;
 
-  const selectedVehicleLabel = getVehicleSelectLabel(selectedVehicle);
   const todayCalendarDate = getCalendarDateString();
   const currentCalendarDate =
     selectedDateString && !isPastCalendarDate(selectedDateString)
@@ -493,18 +575,24 @@ export default function MakeRequest() {
         },
       }
     : {};
+  const vehicleScheduleHours = useMemo(
+    () => buildVehicleScheduleHours(date, vehicleSchedule),
+    [date, vehicleSchedule]
+  );
 
   useEffect(() => {
     const hasUnauthorizedError =
       (vehiclesQueryError instanceof VehicleRequestError &&
         vehiclesQueryError.status === 401) ||
+      (vehicleScheduleError instanceof RequestRequestError &&
+        vehicleScheduleError.status === 401) ||
       (requestsQuery.error instanceof RequestRequestError &&
         requestsQuery.error.status === 401);
 
     if (hasUnauthorizedError) {
       void signOut();
     }
-  }, [requestsQuery.error, signOut, vehiclesQueryError]);
+  }, [requestsQuery.error, signOut, vehicleScheduleError, vehiclesQueryError]);
 
   useEffect(() => {
     if (!isEditMode) {
@@ -558,7 +646,6 @@ export default function MakeRequest() {
     setStartTime(startParts.time);
     setEndTime(endParts.time);
     setSelectedVehicle(requestVehicle);
-    setShowVehicleSelect(false);
     setDestination(request.destination);
     setReason(request.reason);
     setFieldErrors({});
@@ -581,6 +668,7 @@ export default function MakeRequest() {
       isEditMode ||
       isLoadingVehicles ||
       !routeVehicleId ||
+      !hasVehicleAvailabilityWindow ||
       appliedVehicleId.current === routeVehicleId
     ) {
       return;
@@ -599,10 +687,15 @@ export default function MakeRequest() {
     }
 
     setSelectedVehicle(vehicle);
-    setShowVehicleSelect(false);
     setFieldErrors((current) => ({ ...current, vehicle: undefined }));
     setFormError("");
-  }, [availableVehicles, isEditMode, isLoadingVehicles, routeVehicleId]);
+  }, [
+    availableVehicles,
+    hasVehicleAvailabilityWindow,
+    isEditMode,
+    isLoadingVehicles,
+    routeVehicleId,
+  ]);
 
   const clearFieldError = (field: RequestField) => {
     setFieldErrors((current) => {
@@ -623,6 +716,36 @@ export default function MakeRequest() {
       [field]: message,
     }));
   };
+
+  useEffect(() => {
+    if (!hasVehicleAvailabilityWindow) {
+      if (selectedVehicle) {
+        setSelectedVehicle(null);
+      }
+
+      clearFieldError("vehicle");
+      return;
+    }
+
+    if (isLoadingVehicles || vehicleError || !selectedVehicle) {
+      return;
+    }
+
+    const isSelectedVehicleAvailable = availableVehicles.some(
+      (vehicle) => String(vehicle.id) === String(selectedVehicle.id)
+    );
+
+    if (!isSelectedVehicleAvailable) {
+      setSelectedVehicle(null);
+      setFieldError("vehicle", VEHICLE_CONFLICT_MESSAGE);
+    }
+  }, [
+    availableVehicles,
+    hasVehicleAvailabilityWindow,
+    isLoadingVehicles,
+    selectedVehicle,
+    vehicleError,
+  ]);
 
   const openDatePicker = () => {
     setSelectedDateString(
@@ -728,7 +851,12 @@ export default function MakeRequest() {
 
   const selectVehicle = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
-    setShowVehicleSelect(false);
+    clearFieldError("vehicle");
+    setFormError("");
+  };
+
+  const clearSelectedVehicle = () => {
+    setSelectedVehicle(null);
     clearFieldError("vehicle");
     setFormError("");
   };
@@ -770,7 +898,7 @@ export default function MakeRequest() {
     }
 
     if (!selectedVehicle) {
-      nextFieldErrors.vehicle = "Selecione um veículo.";
+      nextFieldErrors.vehicle = "Selecione um veículo da lista.";
     }
 
     if (!trimmedDestination) {
@@ -972,6 +1100,38 @@ export default function MakeRequest() {
           </View>
         </Modal>
 
+        {/* VEÍCULO */}
+        <Text style={styles.label}>Veículo</Text>
+        <View style={styles.vehicleSelectWrapper}>
+          <VehicleAutocomplete
+            disabled={isVehiclePickerDisabled}
+            emptyMessage="Nenhum veículo disponível para solicitação."
+            hasError={Boolean(fieldErrors.vehicle)}
+            isLoading={isLoadingVehicles}
+            onClearSelection={clearSelectedVehicle}
+            onSelect={selectVehicle}
+            placeholder={
+              hasVehicleAvailabilityWindow
+                ? "Digite modelo ou placa"
+                : "Selecione a data primeiro"
+            }
+            selectedVehicle={selectedVehicle}
+            vehicles={availableVehicles}
+          />
+
+          {!hasVehicleAvailabilityWindow && !vehicleError ? (
+            <Text style={styles.fieldHint}>{VEHICLE_AVAILABILITY_MESSAGE}</Text>
+          ) : null}
+
+          {vehicleError ? (
+            <Text style={styles.fieldError}>{vehicleError}</Text>
+          ) : null}
+
+          {fieldErrors.vehicle ? (
+            <Text style={styles.fieldError}>{fieldErrors.vehicle}</Text>
+          ) : null}
+        </View>
+
         {/* HORÁRIOS */}
         <View style={styles.row}>
           <View style={styles.flex}>
@@ -1077,111 +1237,53 @@ export default function MakeRequest() {
           </View>
         </Modal>
 
-        {/* VEÍCULO */}
-        <Text style={styles.label}>Veículo</Text>
-        <View style={styles.vehicleSelectWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            disabled={isLoadingVehicles || Boolean(vehicleError)}
-            onPress={() => {
-              setShowVehicleSelect(true);
-              clearFieldError("vehicle");
-              setFormError("");
-            }}
-            style={[
-              styles.input,
-              styles.selectInput,
-              fieldErrors.vehicle && styles.inputError,
-              (isLoadingVehicles || Boolean(vehicleError)) &&
-                styles.disabledInput,
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.pickerText,
-                !selectedVehicleLabel && styles.pickerPlaceholderText,
-              ]}
-            >
-              {isLoadingVehicles
-                ? "Carregando veículos..."
-                : selectedVehicleLabel || "Selecione um veículo"}
-            </Text>
-            <Text style={styles.selectChevron}>▼</Text>
-          </TouchableOpacity>
+        {date ? (
+          <View style={styles.scheduleSection}>
+            <Text style={styles.scheduleTitle}>Horários do veículo</Text>
 
-          {isLoadingVehicles && (
-            <View style={styles.vehicleLoading}>
-              <ActivityIndicator color={colors.primary} size="small" />
-              <Text style={styles.vehicleLoadingText}>Carregando veículos...</Text>
-            </View>
-          )}
-
-          {vehicleError ? (
-            <Text style={styles.fieldError}>{vehicleError}</Text>
-          ) : null}
-
-          {fieldErrors.vehicle ? (
-            <Text style={styles.fieldError}>{fieldErrors.vehicle}</Text>
-          ) : null}
-        </View>
-        <Modal
-          animationType="fade"
-          onRequestClose={() => setShowVehicleSelect(false)}
-          transparent
-          visible={showVehicleSelect}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.vehicleSelectCard}>
-              <Text style={styles.modalTitle}>Selecionar veículo</Text>
-
-              {availableVehicles.length > 0 ? (
-                <FlatList
-                  data={availableVehicles}
-                  keyExtractor={(vehicle) => String(vehicle.id)}
-                  style={styles.vehicleSelectList}
-                  renderItem={({ item }) => {
-                    const displayName = getVehicleDisplayName(item);
-                    const isSelected =
-                      selectedVehicle && String(selectedVehicle.id) === String(item.id);
-
-                    return (
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={() => selectVehicle(item)}
-                        style={[
-                          styles.vehicleOption,
-                          isSelected && styles.vehicleOptionSelected,
-                        ]}
-                      >
-                        <Text style={styles.vehicleOptionName}>
-                          {displayName}
-                        </Text>
-                        <Text style={styles.vehicleOptionPlate}>
-                          {item.plate}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  }}
-                />
-              ) : (
-                <Text style={styles.vehicleOptionEmpty}>
-                  Nenhum veículo disponível.
+            {!selectedVehicle ? (
+              <Text style={styles.scheduleMessage}>
+                Selecione um veículo para visualizar os horários disponíveis.
+              </Text>
+            ) : isLoadingVehicleSchedule ? (
+              <View style={styles.scheduleLoading}>
+                <ActivityIndicator color={colors.primary} size="small" />
+                <Text style={styles.scheduleMessage}>
+                  Carregando horários do veículo...
                 </Text>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setShowVehicleSelect(false)}
-                  style={[styles.modalButton, styles.modalCancelButton]}
-                >
-                  <Text style={styles.modalCancelText}>Fechar</Text>
-                </TouchableOpacity>
               </View>
-            </View>
+            ) : vehicleScheduleError ? (
+              <Text style={styles.scheduleError}>
+                Não foi possível carregar os horários deste veículo.
+              </Text>
+            ) : (
+              <View style={styles.scheduleGrid}>
+                {vehicleScheduleHours.map((hour) => (
+                  <View
+                    key={hour.label}
+                    style={[
+                      styles.scheduleChip,
+                      hour.isBusy
+                        ? styles.scheduleChipBusy
+                        : styles.scheduleChipAvailable,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scheduleChipText,
+                        hour.isBusy
+                          ? styles.scheduleChipTextBusy
+                          : styles.scheduleChipTextAvailable,
+                      ]}
+                    >
+                      {hour.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
-        </Modal>
+        ) : null}
 
         {/* DESTINO */}
         <Text style={styles.label}>Destino</Text>
@@ -1311,19 +1413,8 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
 
-  disabledInput: {
-    opacity: 0.7,
-  },
-
   pickerInput: {
     justifyContent: "center",
-  },
-
-  selectInput: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
   },
 
   pickerText: {
@@ -1334,12 +1425,6 @@ const styles = StyleSheet.create({
 
   pickerPlaceholderText: {
     color: colors.textMuted,
-  },
-
-  selectChevron: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "700",
   },
 
   modalOverlay: {
@@ -1509,66 +1594,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
 
-  vehicleSelectCard: {
-    width: "100%",
-    maxWidth: 390,
-    maxHeight: "76%",
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 16,
-  },
-
-  vehicleSelectList: {
-    maxHeight: 360,
-  },
-
-  vehicleOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-
-  vehicleOptionSelected: {
-    backgroundColor: "#E8EEF5",
-    borderRadius: 12,
-  },
-
-  vehicleOptionName: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  vehicleOptionPlate: {
-    color: colors.textSecondary,
+  fieldError: {
+    color: colors.danger,
     fontSize: 13,
-    marginTop: 2,
-  },
-
-  vehicleOptionEmpty: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-
-  vehicleLoading: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    fontWeight: "600",
     marginTop: 8,
   },
 
-  vehicleLoadingText: {
+  fieldHint: {
     color: colors.textSecondary,
-    fontSize: 13,
-  },
-
-  fieldError: {
-    color: colors.danger,
     fontSize: 13,
     fontWeight: "600",
     marginTop: 8,
@@ -1589,6 +1623,77 @@ const styles = StyleSheet.create({
 
   flex: {
     flex: 1,
+  },
+
+  scheduleSection: {
+    marginTop: 14,
+    zIndex: 1,
+  },
+
+  scheduleTitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  scheduleMessage: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+
+  scheduleError: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+
+  scheduleLoading: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  scheduleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  scheduleChip: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 32,
+    minWidth: 58,
+    paddingHorizontal: 10,
+  },
+
+  scheduleChipAvailable: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+
+  scheduleChipBusy: {
+    backgroundColor: "#D1D5DB",
+    borderColor: "#C4CAD4",
+  },
+
+  scheduleChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  scheduleChipTextAvailable: {
+    color: colors.textPrimary,
+  },
+
+  scheduleChipTextBusy: {
+    color: "#6B7280",
   },
 
   buttons: {
