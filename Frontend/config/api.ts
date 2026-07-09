@@ -4,7 +4,9 @@ import { Platform } from "react-native";
 const CORE_PORT = 3333;
 const TRACKING_PORT = 8080;
 
-const ENV_CORE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const ENV_CORE_URL =
+  process.env.EXPO_PUBLIC_CORE_API_URL ||
+  process.env.EXPO_PUBLIC_API_BASE_URL;
 const ENV_TRACKING_URL =
   process.env.EXPO_PUBLIC_TRACKING_API_URL ||
   process.env.EXPO_PUBLIC_TRACKING_API_BASE_URL;

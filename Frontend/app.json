@@ -12,7 +12,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota."
+        "NSLocationWhenInUseUsageDescription": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota mesmo em segundo plano."
       }
     },
     "android": {
@@ -26,7 +27,10 @@
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -41,9 +45,15 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota."
+          "locationWhenInUsePermission": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota.",
+          "locationAlwaysAndWhenInUsePermission": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota mesmo em segundo plano.",
+          "locationAlwaysPermission": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota mesmo em segundo plano.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
-      ]
+      ],
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,
