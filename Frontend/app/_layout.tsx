@@ -8,6 +8,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TabBar } from "../components/layout/TabBar";
 import { colors } from "../constants/colors";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
+import {
+  subscribeToTrackingQueueSync,
+  syncTrackingQueue,
+} from "../services/trackingService";
+import "../services/trackingLocation";
 
 const paperTheme = {
   ...MD3LightTheme,
@@ -112,6 +117,12 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    void syncTrackingQueue();
+
+    return subscribeToTrackingQueueSync();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <PaperProvider theme={paperTheme}>

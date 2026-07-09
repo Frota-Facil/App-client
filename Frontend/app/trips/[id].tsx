@@ -1,4 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -187,8 +191,19 @@ export default function TripDetailsScreen() {
     }
 
     if (trip?.routeStatus === "STARTED") {
-      void startTracking(routeId);
-      return;
+      let isCurrent = true;
+
+      void startTracking(routeId).then((didStartTracking) => {
+        if (isCurrent && !didStartTracking) {
+          setActionError(
+            "Não foi possível ativar o envio de localização."
+          );
+        }
+      });
+
+      return () => {
+        isCurrent = false;
+      };
     }
 
     stopTracking();
@@ -246,7 +261,7 @@ export default function TripDetailsScreen() {
 
     try {
       const updatedTrip = await startTripMutation.mutateAsync();
-      const didStartTracking = await startTracking(updatedTrip.id);
+      const didStartTracking = await startTracking(updatedTrip.id || routeId);
 
       if (!didStartTracking) {
         setActionError(

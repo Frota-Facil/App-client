@@ -1,11 +1,13 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-const API_PORT = 3333;
-const TRACKING_API_PORT = 8080;
-const WEB_BASE_URL = `http://localhost:${API_PORT}`;
-const ENV_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
-const ENV_TRACKING_BASE_URL = process.env.EXPO_PUBLIC_TRACKING_API_URL;
+const CORE_PORT = 3333;
+const TRACKING_PORT = 8080;
+
+const ENV_CORE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const ENV_TRACKING_URL =
+  process.env.EXPO_PUBLIC_TRACKING_API_URL ||
+  process.env.EXPO_PUBLIC_TRACKING_API_BASE_URL;
 
 type ExpoHostConstants = {
   expoConfig?: {
@@ -33,23 +35,29 @@ const getExpoHostUri = () => {
   );
 };
 
-const getNativeBaseURL = (port: number) => {
+const getHost = () => {
   const hostUri = getExpoHostUri();
-  const host = hostUri?.split(":")[0];
+  const host = hostUri?.replace(/^.*:\/\//, "").split(":")[0];
 
-  return `http://${host || "localhost"}:${port}`;
+  return host || "localhost";
 };
 
+const createBaseURL = (port: number) => {
+  if (Platform.OS === "web") {
+    return `http://localhost:${port}`;
+  }
+
+  return `http://${getHost()}:${port}`;
+};
+
+const coreBaseURL = ENV_CORE_URL || createBaseURL(CORE_PORT);
+const trackingBaseURL = ENV_TRACKING_URL || createBaseURL(TRACKING_PORT);
+
 export const apiConfig = {
-  baseURL:
-    ENV_BASE_URL ||
-    (Platform.OS === "web" ? WEB_BASE_URL : getNativeBaseURL(API_PORT)),
+  baseURL: coreBaseURL,
+  trackingBaseURL,
 };
 
 export const trackingApiConfig = {
-  baseURL:
-    ENV_TRACKING_BASE_URL ||
-    (Platform.OS === "web"
-      ? `http://localhost:${TRACKING_API_PORT}`
-      : getNativeBaseURL(TRACKING_API_PORT)),
+  baseURL: trackingBaseURL,
 };

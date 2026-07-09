@@ -20,6 +20,7 @@ import {
   saveSession,
 } from "../services/session";
 import type { AuthSession, AuthUser } from "../services/session";
+import { stopRouteTracking } from "../services/trackingLocation";
 
 type AuthContextValue = {
   isLoading: boolean;
@@ -117,6 +118,12 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   }, [savePushTokenAsync]);
 
   const signOut = useCallback(async () => {
+    try {
+      await stopRouteTracking();
+    } catch (error) {
+      console.warn("Não foi possível parar o tracking no logout:", error);
+    }
+
     await clearSession();
     queryClient.clear();
     setSession(null);

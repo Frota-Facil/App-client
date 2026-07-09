@@ -1,16 +1,22 @@
 import { trackingApiConfig } from "../config/api";
 
-type TrackingPoint = {
-  capturedAt: string;
+const TRACKING_REQUEST_TIMEOUT_MS = 1000 * 10;
+
+export type TrackingPoint = {
   latitude: number;
   longitude: number;
+  capturedAt: string;
 };
 
 export class TrackingRequestError extends Error {
   status?: number;
   isConnectionError: boolean;
 
-  constructor(message: string, status?: number, isConnectionError = false) {
+  constructor(
+    message: string,
+    status?: number,
+    isConnectionError = false
+  ) {
     super(message);
     this.name = "TrackingRequestError";
     this.status = status;
@@ -20,10 +26,12 @@ export class TrackingRequestError extends Error {
 
 export const sendTrackingPoint = async (
   routeId: string,
-  point: TrackingPoint
+  point: TrackingPoint,
+  timeoutMs = TRACKING_REQUEST_TIMEOUT_MS
 ) => {
   const encodedRouteId = encodeURIComponent(routeId);
-
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
 
   try {
@@ -35,19 +43,27 @@ export const sendTrackingPoint = async (
           "Content-Type": "application/json",
         },
         body: JSON.stringify(point),
+        signal: controller.signal,
       }
     );
-  } catch {
+  } catch (error) {
+    const isTimeout =
+      error instanceof Error && error.name === "AbortError";
+
     throw new TrackingRequestError(
-      "Não foi possível conectar ao tracking-service.",
+      isTimeout
+        ? "Tempo esgotado ao enviar localização."
+        : "Não foi possível conectar ao tracking-service.",
       undefined,
       true
     );
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!response.ok) {
     throw new TrackingRequestError(
-      "Não foi possível enviar a localização.",
+      "Erro ao enviar localização.",
       response.status
     );
   }
