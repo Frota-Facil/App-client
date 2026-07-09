@@ -28,6 +28,7 @@ import {
   type Trip,
 } from "../../constants/trips";
 import { useAuth } from "../../contexts/AuthContext";
+import { useTripTracking } from "../../hooks/useTripTracking";
 import {
   finishMyTrip,
   getMyTrip,
@@ -139,6 +140,7 @@ export default function TripDetailsScreen() {
   }>();
   const routeId = Array.isArray(idParam) ? idParam[0] : idParam;
   const { signOut, token } = useAuth();
+  const { startTracking, stopTracking } = useTripTracking();
   const tabBarHeight = getTabBarHeight(insets.bottom);
   const [actionError, setActionError] = useState("");
   const [showFinishModal, setShowFinishModal] = useState(false);
@@ -177,6 +179,20 @@ export default function TripDetailsScreen() {
       void signOut();
     }
   }, [loadQueryError, signOut]);
+
+  useEffect(() => {
+    if (!routeId) {
+      stopTracking();
+      return;
+    }
+
+    if (trip?.routeStatus === "STARTED") {
+      void startTracking(routeId);
+      return;
+    }
+
+    stopTracking();
+  }, [routeId, startTracking, stopTracking, trip?.routeStatus]);
 
   const invalidateTripQueries = useCallback(async () => {
     await Promise.all([
@@ -229,7 +245,14 @@ export default function TripDetailsScreen() {
     }
 
     try {
-      await startTripMutation.mutateAsync();
+      const updatedTrip = await startTripMutation.mutateAsync();
+      const didStartTracking = await startTracking(updatedTrip.id);
+
+      if (!didStartTracking) {
+        setActionError(
+          "Viagem iniciada, mas não foi possível ativar o envio de localização."
+        );
+      }
     } catch (error) {
       if (error instanceof TripRequestError && error.status === 401) {
         await signOut();
@@ -266,6 +289,7 @@ export default function TripDetailsScreen() {
 
     try {
       await finishTripMutation.mutateAsync(trimmedDescription);
+      stopTracking();
       setShowFinishModal(false);
       setDescription("");
       setActionError("");
