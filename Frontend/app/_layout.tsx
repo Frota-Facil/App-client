@@ -8,11 +8,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TabBar } from "../components/layout/TabBar";
 import { colors } from "../constants/colors";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
-import {
-  subscribeToTrackingQueueSync,
-  syncTrackingQueue,
-} from "../services/trackingService";
-import "../services/trackingLocation";
 
 const paperTheme = {
   ...MD3LightTheme,
@@ -55,13 +50,13 @@ function AppShell({ isAuthenticated }: { isAuthenticated: boolean }) {
     <View style={styles.appShell}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="home" />
-        <Stack.Screen name="vehicles" />
-        <Stack.Screen name="solicitacoes" />
-        <Stack.Screen name="avisos" />
-        <Stack.Screen name="perfil" />
-        <Stack.Screen name="addrequest" />
-        <Stack.Screen name="trips" />
+        <Stack.Screen name="home/index" />
+        <Stack.Screen name="vehicles/index" />
+        <Stack.Screen name="solicitacoes/index" />
+        <Stack.Screen name="avisos/index" />
+        <Stack.Screen name="perfil/index" />
+        <Stack.Screen name="addrequest/index" />
+        <Stack.Screen name="trips/index" />
         <Stack.Screen name="trips/[id]" />
       </Stack>
 
@@ -118,9 +113,48 @@ function AuthGate() {
 
 export default function RootLayout() {
   useEffect(() => {
-    void syncTrackingQueue();
+    let unsubscribeTrackingQueue: (() => void) | undefined;
+    let isMounted = true;
 
-    return subscribeToTrackingQueueSync();
+    void import("../services/trackingLocation").catch((error) => {
+      console.warn("Não foi possível inicializar o tracking da viagem.", error);
+    });
+
+    void import("../services/trackingService")
+      .then((trackingService) => {
+        const { subscribeToTrackingQueueSync, syncTrackingQueue } =
+          trackingService;
+
+        if (
+          typeof syncTrackingQueue !== "function" ||
+          typeof subscribeToTrackingQueueSync !== "function"
+        ) {
+          console.warn("Serviço de fila de tracking indisponível.");
+          return;
+        }
+
+        void syncTrackingQueue().catch((error) => {
+          console.warn("Não foi possível sincronizar tracking pendente.", error);
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        try {
+          unsubscribeTrackingQueue = subscribeToTrackingQueueSync();
+        } catch (error) {
+          console.warn("Não foi possível observar a fila de tracking.", error);
+        }
+      })
+      .catch((error) => {
+        console.warn("Não foi possível carregar a fila de tracking.", error);
+      });
+
+    return () => {
+      isMounted = false;
+      unsubscribeTrackingQueue?.();
+    };
   }, []);
 
   return (

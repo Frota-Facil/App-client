@@ -20,7 +20,6 @@ import {
   saveSession,
 } from "../services/session";
 import type { AuthSession, AuthUser } from "../services/session";
-import { stopRouteTracking } from "../services/trackingLocation";
 
 type AuthContextValue = {
   isLoading: boolean;
@@ -119,6 +118,10 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
   const signOut = useCallback(async () => {
     try {
+      const { stopRouteTracking } = await import(
+        "../services/trackingLocation"
+      );
+
       await stopRouteTracking();
     } catch (error) {
       console.warn("Não foi possível parar o tracking no logout:", error);
