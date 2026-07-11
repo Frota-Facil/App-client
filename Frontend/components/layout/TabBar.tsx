@@ -8,6 +8,7 @@ import {
 import { useRouter, usePathname, Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { colors } from "../../constants/colors";
 import { styles } from "../../styles/globalStyles";
 
 export const TAB_BAR_BASE_HEIGHT = 64;
@@ -43,14 +44,15 @@ const TabItem: React.FC<TabItemProps> = ({ label, icon, route }) => {
         style={{
           width: 22,
           height: 22,
-          opacity: isActive ? 1 : 0.5,
+          opacity: 1,
+          tintColor: isActive ? colors.primary : colors.textMuted,
         }}
       />
 
       <Text
         style={[
           styles.tabLabel,
-          { opacity: isActive ? 1 : 0.5 },
+          isActive && styles.tabLabelActive,
         ]}
       >
         {label}

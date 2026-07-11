@@ -28,13 +28,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
   },
 
   text: {
-    color: "#00606B",
+    color: colors.primary,
     fontSize: 18,
     fontWeight: "800",
   },

@@ -60,9 +60,9 @@ import {
 } from "../../utils/dateTime";
 
 const ACTION_PRIMARY = colors.primary;
-const CALENDAR_TEXT_PRIMARY = "#111827";
-const CALENDAR_TEXT_SECONDARY = "#6B7280";
-const CALENDAR_BORDER = "#E5E7EB";
+const CALENDAR_TEXT_PRIMARY = colors.textPrimary;
+const CALENDAR_TEXT_SECONDARY = colors.textSecondary;
+const CALENDAR_BORDER = colors.border;
 const TIME_OPTION_HEIGHT = 44;
 const TIME_LIST_HEIGHT = TIME_OPTION_HEIGHT * 5;
 const TIME_PICKER_REPEAT_COUNT = 21;
@@ -153,14 +153,14 @@ LocaleConfig.locales["pt-br"] = {
 LocaleConfig.defaultLocale = "pt-br";
 
 const calendarTheme = {
-  backgroundColor: "#FFFFFF",
-  calendarBackground: "#FFFFFF",
+  backgroundColor: colors.card,
+  calendarBackground: colors.card,
   textSectionTitleColor: CALENDAR_TEXT_SECONDARY,
   selectedDayBackgroundColor: ACTION_PRIMARY,
-  selectedDayTextColor: "#FFFFFF",
+  selectedDayTextColor: colors.textLight,
   todayTextColor: ACTION_PRIMARY,
   dayTextColor: CALENDAR_TEXT_PRIMARY,
-  textDisabledColor: "#D1D5DB",
+  textDisabledColor: colors.disabled,
   arrowColor: ACTION_PRIMARY,
   monthTextColor: CALENDAR_TEXT_PRIMARY,
   textMonthFontWeight: "700" as const,
@@ -262,10 +262,33 @@ const getTimeOptionIndex = (options: string[], value: string) => {
 const getRealTimeOption = (options: string[], index: number) =>
   options[((index % options.length) + options.length) % options.length];
 
-const isPastCalendarDate = (dateString: string, now = new Date()) =>
-  dateString < getCalendarDateString(now);
+const getLocalDateStart = (dateString: string) =>
+  parseLocalDateTimeToDate(dateString, "00:00");
 
-const isPastDateTime = (
+const getCurrentDateStart = (now = new Date()) =>
+  new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+const isSameCalendarDate = (dateString: string, now = new Date()) => {
+  const selectedDate = getLocalDateStart(dateString);
+
+  if (!selectedDate) {
+    return false;
+  }
+
+  return selectedDate.getTime() === getCurrentDateStart(now).getTime();
+};
+
+const isPastCalendarDate = (dateString: string, now = new Date()) => {
+  const selectedDate = getLocalDateStart(dateString);
+
+  if (!selectedDate) {
+    return true;
+  }
+
+  return selectedDate.getTime() < getCurrentDateStart(now).getTime();
+};
+
+const isPastOrCurrentDateTime = (
   dateString: string,
   timeString: string,
   now = new Date()
@@ -275,37 +298,55 @@ const isPastDateTime = (
 
   currentMinute.setSeconds(0, 0);
 
-  return Boolean(selectedDateTime && selectedDateTime < currentMinute);
+  return Boolean(selectedDateTime && selectedDateTime <= currentMinute);
 };
 
 const addHours = (dateValue: Date, hours: number) =>
   new Date(dateValue.getTime() + hours * 60 * 60 * 1000);
 
+const hasVehicleScheduleConflict = (
+  startDateTime: Date,
+  endDateTime: Date,
+  busySlots: VehicleScheduleSlot[]
+) =>
+  busySlots.some((slot) => {
+    const busyStart = parseDateTime(slot.predictedStartDate);
+    const busyEnd = parseDateTime(slot.predictedEndDate);
+
+    return Boolean(
+      busyStart &&
+        busyEnd &&
+        startDateTime < busyEnd &&
+        endDateTime > busyStart
+    );
+  });
+
 const buildVehicleScheduleHours = (
   dateString: string | null,
-  busySlots: VehicleScheduleSlot[]
+  busySlots: VehicleScheduleSlot[],
+  now = new Date()
 ) => {
   if (!dateString) {
     return [];
   }
 
+  const isSelectedDateToday = isSameCalendarDate(dateString, now);
+  const currentMinute = new Date(now);
+  currentMinute.setSeconds(0, 0);
+
   return SCHEDULE_HOURS.map((label) => {
     const hourStart = parseLocalDateTimeToDate(dateString, label);
     const hourEnd = hourStart ? addHours(hourStart, 1) : null;
+    const isPast = Boolean(
+      isSelectedDateToday && hourStart && hourStart <= currentMinute
+    );
     const isBusy = Boolean(
       hourStart &&
         hourEnd &&
-        busySlots.some((slot) => {
-          const busyStart = parseDateTime(slot.predictedStartDate);
-          const busyEnd = parseDateTime(slot.predictedEndDate);
-
-          return Boolean(
-            busyStart && busyEnd && hourStart < busyEnd && hourEnd > busyStart
-          );
-        })
+        hasVehicleScheduleConflict(hourStart, hourEnd, busySlots)
     );
 
-    return { isBusy, label };
+    return { isBusy, isDisabled: isBusy || isPast, isPast, label };
   });
 };
 
@@ -436,6 +477,7 @@ export default function MakeRequest() {
   const [selectedDateString, setSelectedDateString] = useState<string | null>(
     null
   );
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -543,11 +585,11 @@ export default function MakeRequest() {
   const isVehiclePickerDisabled =
     Boolean(vehicleError) || !hasVehicleAvailabilityWindow;
 
-  const todayCalendarDate = getCalendarDateString();
+  const todayCalendarDate = getCalendarDateString(currentDateTime);
   const currentCalendarDate =
-    selectedDateString && !isPastCalendarDate(selectedDateString)
+    selectedDateString && !isPastCalendarDate(selectedDateString, currentDateTime)
       ? selectedDateString
-      : date && !isPastCalendarDate(date)
+      : date && !isPastCalendarDate(date, currentDateTime)
         ? date
         : todayCalendarDate;
   const screenTitle = isEditMode ? "Editar solicitação" : "Nova solicitação";
@@ -570,14 +612,22 @@ export default function MakeRequest() {
         [selectedDateString]: {
           selected: true,
           selectedColor: ACTION_PRIMARY,
-          selectedTextColor: "#FFFFFF",
+          selectedTextColor: colors.textLight,
         },
       }
     : {};
   const vehicleScheduleHours = useMemo(
-    () => buildVehicleScheduleHours(date, vehicleSchedule),
-    [date, vehicleSchedule]
+    () => buildVehicleScheduleHours(date, vehicleSchedule, currentDateTime),
+    [currentDateTime, date, vehicleSchedule]
   );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const hasUnauthorizedError =
@@ -748,7 +798,9 @@ export default function MakeRequest() {
 
   const openDatePicker = () => {
     setSelectedDateString(
-      date && !isPastCalendarDate(date) ? date : todayCalendarDate
+      date && !isPastCalendarDate(date, currentDateTime)
+        ? date
+        : todayCalendarDate
     );
     setShowDatePicker(true);
   };
@@ -774,7 +826,10 @@ export default function MakeRequest() {
   };
 
   const confirmDateSelection = () => {
-    if (!selectedDateString || isPastCalendarDate(selectedDateString)) {
+    if (
+      !selectedDateString ||
+      isPastCalendarDate(selectedDateString, currentDateTime)
+    ) {
       setFieldError("date", "Selecione uma data válida.");
       setShowDatePicker(false);
       return;
@@ -811,7 +866,10 @@ export default function MakeRequest() {
         return;
       }
 
-      if (isPastCalendarDate(date) || isPastDateTime(date, selectedTime)) {
+      if (
+        isPastCalendarDate(date, currentDateTime) ||
+        isPastOrCurrentDateTime(date, selectedTime, currentDateTime)
+      ) {
         setFieldError(
           "startTime",
           "Não é possível solicitar veículo para um horário que já passou."
@@ -821,6 +879,16 @@ export default function MakeRequest() {
       }
 
       setStartTime(selectedTime);
+
+      if (endTime) {
+        const startDateTime = parseLocalDateTimeToDate(date, selectedTime);
+        const endDateTime = parseLocalDateTimeToDate(date, endTime);
+
+        if (startDateTime && endDateTime && endDateTime <= startDateTime) {
+          setEndTime("");
+        }
+      }
+
       clearFieldError("startTime");
       clearFieldError("endTime");
     }
@@ -845,6 +913,62 @@ export default function MakeRequest() {
     }
 
     cancelTimeSelection();
+  };
+
+  const handleScheduleHourPress = (selectedTime: string) => {
+    if (!date) {
+      setFieldError("date", "Selecione uma data válida.");
+      return;
+    }
+
+    if (isPastOrCurrentDateTime(date, selectedTime, currentDateTime)) {
+      setFieldError(
+        "startTime",
+        "Não é possível solicitar veículo para um horário que já passou."
+      );
+      return;
+    }
+
+    setFormError("");
+    clearFieldError("startTime");
+    clearFieldError("endTime");
+
+    const isSelectedStart = selectedTime === startTime;
+    const isSelectedEnd = selectedTime === endTime;
+
+    if (isSelectedStart) {
+      setStartTime("");
+      setEndTime("");
+      return;
+    }
+
+    if (isSelectedEnd) {
+      setEndTime("");
+      return;
+    }
+
+    if (!startTime) {
+      setStartTime(selectedTime);
+      setEndTime("");
+      return;
+    }
+
+    const currentStartDateTime = parseLocalDateTimeToDate(date, startTime);
+    const selectedDateTime = parseLocalDateTimeToDate(date, selectedTime);
+
+    if (!currentStartDateTime || !selectedDateTime) {
+      setStartTime(selectedTime);
+      setEndTime("");
+      return;
+    }
+
+    if (selectedDateTime > currentStartDateTime) {
+      setEndTime(selectedTime);
+      return;
+    }
+
+    setStartTime(selectedTime);
+    setEndTime("");
   };
 
   const selectVehicle = (vehicle: Vehicle) => {
@@ -883,7 +1007,7 @@ export default function MakeRequest() {
     const trimmedReason = reason.trim();
     const nextFieldErrors: RequestFieldErrors = {};
 
-    if (!date || isPastCalendarDate(date)) {
+    if (!date || isPastCalendarDate(date, currentDateTime)) {
       nextFieldErrors.date = "Selecione uma data válida.";
     }
 
@@ -945,7 +1069,7 @@ export default function MakeRequest() {
       return;
     }
 
-    if (isPastDateTime(requestDate, startTime)) {
+    if (isPastOrCurrentDateTime(requestDate, startTime, currentDateTime)) {
       setFieldErrors({
         startTime:
           "Não é possível solicitar veículo para um horário que já passou.",
@@ -957,6 +1081,18 @@ export default function MakeRequest() {
       setFieldErrors({
         endTime: "O horário de término deve ser depois do horário de início.",
       });
+      return;
+    }
+
+    if (
+      selectedVehicle &&
+      hasVehicleScheduleConflict(
+        predictedStartDate,
+        predictedEndDate,
+        vehicleSchedule
+      )
+    ) {
+      setFormError(VEHICLE_CONFLICT_MESSAGE);
       return;
     }
 
@@ -1067,7 +1203,7 @@ export default function MakeRequest() {
                 minDate={todayCalendarDate}
                 markedDates={markedDates}
                 onDayPress={(day: DateData) => {
-                  if (isPastCalendarDate(day.dateString)) {
+                  if (isPastCalendarDate(day.dateString, currentDateTime)) {
                     return;
                   }
 
@@ -1256,28 +1392,51 @@ export default function MakeRequest() {
               </Text>
             ) : (
               <View style={styles.scheduleGrid}>
-                {vehicleScheduleHours.map((hour) => (
-                  <View
-                    key={hour.label}
-                    style={[
-                      styles.scheduleChip,
-                      hour.isBusy
-                        ? styles.scheduleChipBusy
-                        : styles.scheduleChipAvailable,
-                    ]}
-                  >
-                    <Text
+                {vehicleScheduleHours.map((hour) => {
+                  const isSelectedStart = hour.label === startTime;
+                  const isSelectedEnd = hour.label === endTime;
+
+                  return (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        disabled: hour.isDisabled,
+                        selected: isSelectedStart || isSelectedEnd,
+                      }}
+                      activeOpacity={0.85}
+                      disabled={hour.isDisabled}
+                      key={hour.label}
+                      onPress={() => handleScheduleHourPress(hour.label)}
                       style={[
-                        styles.scheduleChipText,
-                        hour.isBusy
-                          ? styles.scheduleChipTextBusy
-                          : styles.scheduleChipTextAvailable,
+                        styles.scheduleChip,
+                        styles.scheduleChipAvailable,
+                        isSelectedStart &&
+                          !hour.isDisabled &&
+                          styles.scheduleChipSelectedStart,
+                        isSelectedEnd &&
+                          !hour.isDisabled &&
+                          styles.scheduleChipSelectedEnd,
+                        hour.isDisabled && styles.scheduleChipDisabled,
                       ]}
                     >
-                      {hour.label}
-                    </Text>
-                  </View>
-                ))}
+                      <Text
+                        style={[
+                          styles.scheduleChipText,
+                          styles.scheduleChipTextAvailable,
+                          isSelectedStart &&
+                            !hour.isDisabled &&
+                            styles.scheduleChipTextSelectedStart,
+                          isSelectedEnd &&
+                            !hour.isDisabled &&
+                            styles.scheduleChipTextSelectedEnd,
+                          hour.isDisabled && styles.scheduleChipTextDisabled,
+                        ]}
+                      >
+                        {hour.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -1348,7 +1507,7 @@ export default function MakeRequest() {
             onPress={handleSave}
           >
             {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={colors.textLight} size="small" />
             ) : (
               <Text style={styles.saveText}>{saveButtonLabel}</Text>
             )}
@@ -1427,7 +1586,7 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(17, 24, 39, 0.55)",
+    backgroundColor: colors.overlay,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 22,
@@ -1436,12 +1595,12 @@ const styles = StyleSheet.create({
   calendarCard: {
     width: "100%",
     maxWidth: 390,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 18,
     paddingBottom: 16,
-    shadowColor: "#000000",
+    shadowColor: colors.primaryDark,
     shadowOffset: {
       width: 0,
       height: 8,
@@ -1488,7 +1647,7 @@ const styles = StyleSheet.create({
 
   timePickerBox: {
     height: TIME_LIST_HEIGHT,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.backgroundSoft,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: CALENDAR_BORDER,
@@ -1503,9 +1662,9 @@ const styles = StyleSheet.create({
     top: (TIME_LIST_HEIGHT - TIME_OPTION_HEIGHT) / 2,
     height: TIME_OPTION_HEIGHT,
     borderRadius: 12,
-    backgroundColor: "#E8EEF5",
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: "#D8E0EA",
+    borderColor: colors.primarySoftBorder,
   },
 
   timePickerListContent: {
@@ -1531,7 +1690,7 @@ const styles = StyleSheet.create({
   },
 
   timePickerSelectedText: {
-    color: "#FFFFFF",
+    color: colors.textLight,
   },
 
   timeSeparator: {
@@ -1563,7 +1722,7 @@ const styles = StyleSheet.create({
   },
 
   modalCancelButton: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.background,
   },
 
   modalConfirmButton: {
@@ -1577,7 +1736,7 @@ const styles = StyleSheet.create({
   },
 
   modalConfirmText: {
-    color: "#FFFFFF",
+    color: colors.textLight,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -1676,9 +1835,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
 
-  scheduleChipBusy: {
-    backgroundColor: "#D1D5DB",
-    borderColor: "#C4CAD4",
+  scheduleChipSelectedStart: {
+    backgroundColor: ACTION_PRIMARY,
+    borderColor: ACTION_PRIMARY,
+  },
+
+  scheduleChipSelectedEnd: {
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
+  },
+
+  scheduleChipDisabled: {
+    backgroundColor: colors.disabled,
+    borderColor: colors.border,
   },
 
   scheduleChipText: {
@@ -1690,8 +1859,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
-  scheduleChipTextBusy: {
-    color: "#6B7280",
+  scheduleChipTextSelectedStart: {
+    color: colors.textLight,
+  },
+
+  scheduleChipTextSelectedEnd: {
+    color: colors.successText,
+  },
+
+  scheduleChipTextDisabled: {
+    color: colors.textSecondary,
   },
 
   buttons: {
@@ -1710,7 +1887,7 @@ const styles = StyleSheet.create({
   },
 
   cancelButton: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.background,
   },
 
   saveButton: {
@@ -1728,7 +1905,7 @@ const styles = StyleSheet.create({
   },
 
   saveText: {
-    color: "#FFFFFF",
+    color: colors.textLight,
     fontWeight: "700",
     fontSize: 15,
   },

@@ -1,4 +1,5 @@
 import type { Vehicle } from "./data";
+import { colors } from "./colors";
 import {
   formatFullDateToPtBr,
   formatShortDateToPtBr,
@@ -50,20 +51,20 @@ export const getTripStatusMeta = (routeStatus: RouteStatus) => {
     case "in_progress":
       return {
         label: "Em andamento",
-        bg: "#DBEAFE",
-        color: "#1D4ED8",
+        bg: colors.primarySoft,
+        color: colors.primaryActive,
       };
     case "finished":
       return {
         label: "Concluída",
-        bg: "#DCFCE7",
-        color: "#16A34A",
+        bg: colors.successSoft,
+        color: colors.successText,
       };
     default:
       return {
         label: "Agendada",
-        bg: "#FEF3C7",
-        color: "#92400E",
+        bg: colors.warningSoft,
+        color: colors.warningText,
       };
   }
 };

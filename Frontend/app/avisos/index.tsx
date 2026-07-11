@@ -243,8 +243,8 @@ export default function AvisosScreen() {
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
       <StatusBar
-        backgroundColor={colors.surface}
-        style="dark"
+        backgroundColor={colors.primaryDark}
+        style="light"
         translucent={false}
       />
 
@@ -291,7 +291,7 @@ export default function AvisosScreen() {
           onPress={handleMarkAllAsRead}
           style={screenStyles.markAllFloatingButton}
         >
-          <CheckCheck color="#111827" size={18} strokeWidth={2.4} />
+          <CheckCheck color={colors.textLight} size={18} strokeWidth={2.4} />
           <Text style={screenStyles.markAllFloatingButtonText}>
             Marcar todos
           </Text>
@@ -327,12 +327,12 @@ const screenStyles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 22,
     borderRadius: 24,
-    backgroundColor: "#F59E0B",
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    shadowColor: "#000000",
+    shadowColor: colors.primaryDark,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -340,7 +340,7 @@ const screenStyles = StyleSheet.create({
   },
 
   markAllFloatingButtonText: {
-    color: "#111827",
+    color: colors.textLight,
     fontSize: 16,
     fontWeight: "700",
   },

@@ -472,11 +472,15 @@ export default function TripDetailsScreen() {
             ]}
           >
             {isStarting ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={colors.textLight} size="small" />
             ) : isInProgress ? (
-              <Square size={17} color="#FFFFFF" fill="#FFFFFF" />
+              <Square
+                color={colors.textLight}
+                fill={colors.textLight}
+                size={17}
+              />
             ) : (
-              <Play size={18} color="#FFFFFF" />
+              <Play color={colors.textLight} size={18} />
             )}
             <Text style={localStyles.actionButtonText}>
               {isStarting
@@ -539,7 +543,7 @@ export default function TripDetailsScreen() {
                 ]}
               >
                 {isFinishing ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={colors.textLight} size="small" />
                 ) : (
                   <Text style={localStyles.finishButtonText}>Finalizar</Text>
                 )}
@@ -621,7 +625,7 @@ const localStyles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#E6F6FA",
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -662,7 +666,7 @@ const localStyles = StyleSheet.create({
     opacity: 0.55,
   },
   actionButtonText: {
-    color: "#FFFFFF",
+    color: colors.textLight,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -698,7 +702,7 @@ const localStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(17, 24, 39, 0.58)",
+    backgroundColor: colors.overlay,
     paddingHorizontal: 22,
   },
   modalCard: {
@@ -749,7 +753,7 @@ const localStyles = StyleSheet.create({
     borderRadius: 16,
   },
   cancelButton: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.background,
   },
   cancelButtonText: {
     color: colors.textPrimary,
@@ -760,7 +764,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   finishButtonText: {
-    color: "#FFFFFF",
+    color: colors.textLight,
     fontSize: 15,
     fontWeight: "700",
   },

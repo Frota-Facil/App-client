@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
 
   clearButton: {
     alignItems: "center",
-    backgroundColor: "#EEF2F7",
+    backgroundColor: colors.background,
     borderRadius: 12,
     height: 28,
     justifyContent: "center",
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
 
   optionSelected: {
-    backgroundColor: "#E8EEF5",
+    backgroundColor: colors.primarySoft,
   },
 
   optionTextGroup: {

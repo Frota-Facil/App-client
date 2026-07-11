@@ -156,7 +156,7 @@ export default function HomeScreen() {
     <SafeAreaView style={homeStyles.root} edges={["top"]}>
       {isFocused && (
         <StatusBar
-          backgroundColor={colors.primary}
+          backgroundColor={colors.primaryDark}
           style="light"
           translucent={false}
         />
@@ -299,7 +299,7 @@ export default function HomeScreen() {
 const homeStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   headerArea: {
     backgroundColor: colors.background,

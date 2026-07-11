@@ -11,6 +11,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { SCREEN_PADDING } from "../../styles/globalStyles";
+import { colors } from "../../constants/colors";
 
 type PageHeaderProps = {
   title: string;
@@ -132,13 +133,13 @@ export function PageHeader({
 const styles = StyleSheet.create({
   container: {
     height: 76,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.primaryDark,
     paddingHorizontal: SCREEN_PADDING,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.primaryDark,
   },
 
   leftArea: {
@@ -159,6 +160,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 20,
     height: 20,
+    tintColor: colors.textLight,
   },
 
   titleArea: {
@@ -169,13 +171,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.textLight,
   },
 
   subtitle: {
     marginTop: 2,
     fontSize: 12,
-    color: "#6B7280",
+    color: colors.textOnDarkMuted,
   },
 
   rightArea: {
@@ -196,11 +198,12 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     marginRight: 6,
+    tintColor: colors.textLight,
   },
 
   rightText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#075985",
+    color: colors.textLight,
   },
 });

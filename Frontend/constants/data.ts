@@ -1,3 +1,5 @@
+import { colors } from "./colors";
+
 export type NormalizedVehicleStatus =
   | "available"
   | "in_use"
@@ -40,30 +42,30 @@ export const getVehicleStatusMeta = (status?: string | null) => {
     case "available":
       return {
         label: "Disponível",
-        bg: "#DCFCE7",
-        color: "#166534",
-        dot: "#16A34A",
+        bg: colors.successSoft,
+        color: colors.successText,
+        dot: colors.success,
       };
     case "in_use":
       return {
         label: "Em uso",
-        bg: "#DBEAFE",
-        color: "#1E3A8A",
-        dot: "#2563EB",
+        bg: colors.primarySoft,
+        color: colors.primaryActive,
+        dot: colors.primary,
       };
     case "maintenance":
       return {
         label: "Manutenção",
-        bg: "#FEF3C7",
-        color: "#92400E",
-        dot: "#D97706",
+        bg: colors.warningSoft,
+        color: colors.warningText,
+        dot: colors.warning,
       };
     default:
       return {
         label: "Indisponível",
-        bg: "#FEE2E2",
-        color: "#991B1B",
-        dot: "#DC2626",
+        bg: colors.dangerSoft,
+        color: colors.dangerText,
+        dot: colors.dangerText,
       };
   }
 };

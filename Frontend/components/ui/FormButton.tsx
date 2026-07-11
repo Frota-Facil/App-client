@@ -3,8 +3,9 @@ import {
   TouchableOpacity,
   Text,
   StyleSheet,
-  ViewStyle,
+  type ViewStyle,
 } from "react-native";
+import { colors } from "../../constants/colors";
 
 type Props = {
   title: string;
@@ -55,11 +56,11 @@ const styles = StyleSheet.create({
   },
 
   primary: {
-    backgroundColor: "#0F766E",
+    backgroundColor: colors.primary,
   },
 
   secondary: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.background,
   },
 
   text: {
@@ -68,10 +69,10 @@ const styles = StyleSheet.create({
   },
 
   textPrimary: {
-    color: "#fff",
+    color: colors.textLight,
   },
 
   textSecondary: {
-    color: "#111827",
+    color: colors.textPrimary,
   },
 });

@@ -11,12 +11,9 @@ import { Eye, EyeClosed } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
+import { colors } from "../constants/colors";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthRequestError } from "../services/auth";
-
-const inputTextColor = "#111827";
-const inputPlaceholderColor = "#6B7280";
-const inputSelectionColor = "#1B3A5C";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -58,7 +55,7 @@ export default function LoginScreen() {
     <SafeAreaView
       style={{
         flex: 1,
-        backgroundColor: "#F3F4F6",
+        backgroundColor: colors.background,
         justifyContent: "space-around",
         padding: 20,
       }}
@@ -78,17 +75,15 @@ export default function LoginScreen() {
       {/* CARD */}
       <View
         style={{
-          backgroundColor: "#fff",
+          backgroundColor: colors.card,
           borderRadius: 20,
           padding: 20,
-          shadowColor: "#000",
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-          elevation: 5,
+          borderWidth: 1,
+          borderColor: colors.border,
         }}
       >
         {/* EMAIL */}
-        <Text style={{ marginBottom: 6, color: "#374151" }}>
+        <Text style={{ marginBottom: 6, color: colors.textSecondary }}>
           Email institucional
         </Text>
 
@@ -99,22 +94,22 @@ export default function LoginScreen() {
           autoCorrect={false}
           keyboardType="email-address"
           placeholder="nome@sif.com"
-          placeholderTextColor={inputPlaceholderColor}
-          selectionColor={inputSelectionColor}
-          cursorColor={inputSelectionColor}
+          placeholderTextColor={colors.textMuted}
+          selectionColor={colors.primary}
+          cursorColor={colors.primary}
           style={{
-            backgroundColor: "#F9FAFB",
+            backgroundColor: colors.backgroundSoft,
             borderRadius: 12,
             padding: 14,
             borderWidth: 1,
-            borderColor: "#E5E7EB",
-            color: inputTextColor,
+            borderColor: colors.border,
+            color: colors.textPrimary,
             marginBottom: 16,
           }}
         />
 
         {/* SENHA */}
-        <Text style={{ marginBottom: 6, color: "#374151" }}>
+        <Text style={{ marginBottom: 6, color: colors.textSecondary }}>
           Senha
         </Text>
 
@@ -124,17 +119,17 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             placeholder="Digite sua senha"
-            placeholderTextColor={inputPlaceholderColor}
-            selectionColor={inputSelectionColor}
-            cursorColor={inputSelectionColor}
+            placeholderTextColor={colors.textMuted}
+            selectionColor={colors.primary}
+            cursorColor={colors.primary}
             style={{
-              backgroundColor: "#F9FAFB",
+              backgroundColor: colors.backgroundSoft,
               borderRadius: 12,
               padding: 14,
               paddingRight: 48,
               borderWidth: 1,
-              borderColor: "#E5E7EB",
-              color: inputTextColor,
+              borderColor: colors.border,
+              color: colors.textPrimary,
             }}
           />
 
@@ -150,9 +145,9 @@ export default function LoginScreen() {
             }}
           >
             {showPassword ? (
-              <EyeClosed size={22} color="#6B7280" />
+              <EyeClosed size={22} color={colors.textSecondary} />
             ) : (
-              <Eye size={22} color="#6B7280" />
+              <Eye size={22} color={colors.textSecondary} />
             )}
           </TouchableOpacity>
         </View>
@@ -160,7 +155,7 @@ export default function LoginScreen() {
         {errorMessage ? (
           <Text
             style={{
-              color: "#B91C1C",
+              color: colors.dangerText,
               marginBottom: 14,
               textAlign: "center",
             }}
@@ -174,16 +169,16 @@ export default function LoginScreen() {
           onPress={handleLogin}
           disabled={isLoading}
           style={{
-            backgroundColor: isLoading ? "#6B7280" : "#1B3A5C",
+            backgroundColor: isLoading ? colors.textSecondary : colors.primary,
             padding: 16,
             borderRadius: 14,
             alignItems: "center",
           }}
         >
           {isLoading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.textLight} />
           ) : (
-            <Text style={{ color: "#fff", fontWeight: "bold" }}>
+            <Text style={{ color: colors.textLight, fontWeight: "bold" }}>
               Entrar
             </Text>
           )}

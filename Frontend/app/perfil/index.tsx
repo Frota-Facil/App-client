@@ -118,9 +118,9 @@ function ProfileField({
               ]}
             >
               {isSaving ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color={colors.textLight} size="small" />
               ) : isEditing ? (
-                <Check color="#FFFFFF" size={17} strokeWidth={2.5} />
+                <Check color={colors.textLight} size={17} strokeWidth={2.5} />
               ) : (
                 <Pencil
                   color={PROFILE_PRIMARY}
@@ -378,8 +378,8 @@ export default function PerfilScreen() {
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <StatusBar
-        backgroundColor={colors.surface}
-        style="dark"
+        backgroundColor={colors.primaryDark}
+        style="light"
         translucent={false}
       />
 
@@ -496,7 +496,7 @@ export default function PerfilScreen() {
                   isSigningOut ? (
                     <ActivityIndicator color={colors.danger} size="small" />
                   ) : (
-                    <LogOut color="#EF4444" size={18} strokeWidth={2.2} />
+                    <LogOut color={colors.danger} size={18} strokeWidth={2.2} />
                   )
                 }
                 variant="danger"
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: PROFILE_PRIMARY,
-    shadowColor: "#0F172A",
+    shadowColor: colors.primaryDark,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 20,
@@ -552,14 +552,14 @@ const styles = StyleSheet.create({
   },
 
   avatarText: {
-    color: "#FFFFFF",
+    color: colors.textLight,
     fontSize: 30,
     fontWeight: "800",
   },
 
   profileName: {
     marginTop: 14,
-    color: "#0D1B2A",
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: "800",
   },
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
 
   fieldValue: {
     flex: 1,
-    color: "#0D1B2A",
+    color: colors.textPrimary,
     fontSize: 16,
     padding: 0,
   },
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E6F3F5",
+    backgroundColor: colors.primarySoft,
   },
 
   editFieldButtonActive: {
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   },
 
   retryButtonText: {
-    color: "#FFFFFF",
+    color: colors.textLight,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -692,10 +692,10 @@ const styles = StyleSheet.create({
   },
 
   dangerButton: {
-    backgroundColor: "#FCE7EA",
+    backgroundColor: colors.dangerSoft,
   },
 
   dangerButtonText: {
-    color: "#EF4444",
+    color: colors.danger,
   },
 });

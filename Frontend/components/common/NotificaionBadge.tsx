@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Bell, BellRing } from "lucide-react-native";
+import { colors } from "../../constants/colors";
 import { styles } from '../../styles/globalStyles';
 
 type NotificationBadgeProps = {
@@ -10,9 +11,9 @@ type NotificationBadgeProps = {
 export const NotificationBadge = ({ count, onPress }: NotificationBadgeProps) => (
   <TouchableOpacity onPress={onPress} style={styles.bellWrapper}>
     {count > 0 ? (
-      <BellRing size={22} color="#FFFFFF" />
+      <BellRing size={22} color={colors.textLight} />
     ) : (
-      <Bell size={22} color="#FFFFFF" />
+      <Bell size={22} color={colors.textLight} />
     )}
     
     {count > 0 && (

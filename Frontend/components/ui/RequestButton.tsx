@@ -1,6 +1,7 @@
 import React from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
 import { router } from "expo-router";
+import { colors } from "../../constants/colors";
 
 
 type Props = {
@@ -22,7 +23,7 @@ export function RequestButton({ title = "Solicitar veículo", onPress }: Props) 
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#F4A62A",
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 30,
@@ -39,6 +40,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
+    color: colors.textLight,
   },
 });

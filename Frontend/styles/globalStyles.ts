@@ -22,7 +22,7 @@ export const baseCard: ViewStyle = {
   padding: CARD_PADDING,
   borderWidth: 1,
   borderColor: CARD_BORDER_COLOR,
-  shadowColor: "#000000",
+  shadowColor: colors.primaryDark,
   shadowOffset: { width: 0, height: 0 },
   shadowOpacity: 0,
   shadowRadius: 0,
@@ -56,7 +56,7 @@ export const styles = StyleSheet.create({
 
   // ───────── HEADER ─────────
   header: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     padding: SCREEN_PADDING,
     paddingTop: 15,
     borderBottomLeftRadius: 20,
@@ -76,18 +76,18 @@ export const styles = StyleSheet.create({
   },
 
   headerSubtitle: {
-    color: '#C7D2FE',
+    color: colors.textOnDarkMuted,
     fontSize: 12,
   },
 
   headerName: {
-    color: '#fff',
+    color: colors.textLight,
     fontSize: 16,
     fontWeight: 'bold',
   },
 
   heroText: {
-    color: '#fff',
+    color: colors.textLight,
     fontSize: 24,
     fontWeight: 'bold',
     marginTop: 20,
@@ -99,21 +99,21 @@ export const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#274C77',
+    backgroundColor: colors.primaryActive,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
 
   avatarText: {
-    color: '#fff',
+    color: colors.textLight,
     fontWeight: 'bold',
   },
 
   // ───────── BUTTON ─────────
   ctaButton: {
     marginTop: 20,
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -123,7 +123,7 @@ export const styles = StyleSheet.create({
   },
 
   ctaText: {
-    color: '#fff',
+    color: colors.textLight,
     fontWeight: 'bold',
   },
 
@@ -143,7 +143,7 @@ export const styles = StyleSheet.create({
   },
 
   badgeText: {
-    color: '#fff',
+    color: colors.textLight,
     fontSize: 10,
   },
 
@@ -204,7 +204,7 @@ export const styles = StyleSheet.create({
     width: 66,
     height: 50,
     borderRadius: 14,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.backgroundSoft,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -260,7 +260,7 @@ export const styles = StyleSheet.create({
   availableBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
@@ -376,7 +376,7 @@ export const styles = StyleSheet.create({
   vehicleSearchInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     borderRadius: CARD_RADIUS,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -387,14 +387,14 @@ export const styles = StyleSheet.create({
   vehicleSearchIcon: {
     width: 18,
     height: 18,
-    tintColor: "#9CA3AF",
+    tintColor: colors.textMuted,
     marginRight: 8,
   },
 
   vehicleSearchInput: {
     flex: 1,
     fontSize: 14,
-    color: "#111827",
+    color: colors.textPrimary,
   },
 
   vehicleList: {
@@ -415,7 +415,7 @@ export const styles = StyleSheet.create({
   },
 
   vehicleGridImage: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.backgroundSoft,
     borderRadius: 12,
     height: 80,
     justifyContent: "center",
@@ -435,7 +435,7 @@ export const styles = StyleSheet.create({
 
   vehicleGridPlate: {
     fontSize: 12,
-    color: "#6B7280",
+    color: colors.textSecondary,
   },
 
   vehicleGridStatus: {
@@ -455,7 +455,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: SCREEN_PADDING,
-    backgroundColor: "rgba(13, 27, 42, 0.62)",
+    backgroundColor: colors.overlay,
   },
 
   vehicleModalBackdrop: {
@@ -465,12 +465,12 @@ export const styles = StyleSheet.create({
   vehicleModalCard: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,
     borderColor: CARD_BORDER_COLOR,
-    shadowColor: "#0D1B2A",
+    shadowColor: colors.primaryDark,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -480,7 +480,7 @@ export const styles = StyleSheet.create({
   vehicleModalImageWrapper: {
     minHeight: 150,
     borderRadius: 16,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.backgroundSoft,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
@@ -521,7 +521,7 @@ export const styles = StyleSheet.create({
   vehicleModalRequestButton: {
     width: "100%",
     height: 52,
-    backgroundColor: "#F59E0B",
+    backgroundColor: colors.primary,
     borderRadius: 18,
     marginTop: 16,
     alignItems: "center",
@@ -529,21 +529,21 @@ export const styles = StyleSheet.create({
   },
 
   vehicleModalRequestButtonText: {
-    color: "#0D1B2A",
+    color: colors.textLight,
     fontSize: 15,
     fontWeight: "700",
   },
 
   vehicleModalRequestButtonDisabled: {
-    backgroundColor: "#CBD5E1",
+    backgroundColor: colors.disabled,
   },
 
   vehicleModalRequestButtonTextDisabled: {
-    color: "#4A5568",
+    color: colors.textSecondary,
   },
 
   vehicleModalFooterButton: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.background,
     borderRadius: 18,
     height: 52,
     marginTop: 10,
@@ -563,7 +563,7 @@ export const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
@@ -583,7 +583,7 @@ export const styles = StyleSheet.create({
   },
 
   tabLabelActive: {
-    color: '#F59E0B',
+    color: colors.primary,
     fontWeight: 'bold',
   },
   backIcon: {
@@ -598,9 +598,9 @@ export const styles = StyleSheet.create({
     height: 60,
     paddingHorizontal: SCREEN_PADDING,
     paddingVertical: 18,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -615,7 +615,7 @@ export const styles = StyleSheet.create({
   notificationsHeaderTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#111827",
+    color: colors.textPrimary,
   },
 
   markAllText: {
@@ -625,7 +625,7 @@ export const styles = StyleSheet.create({
   },
 
   notificationFiltersArea: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     paddingTop: 14,
     paddingBottom: 8,
   },
@@ -639,9 +639,9 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 9,
     borderRadius: 22,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
     marginRight: 8,
   },
 
@@ -653,11 +653,11 @@ export const styles = StyleSheet.create({
   notificationFilterText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6B7280",
+    color: colors.textSecondary,
   },
 
   notificationFilterTextActive: {
-    color: "#FFFFFF",
+    color: colors.textLight,
   },
 
   notificationsListContent: {
@@ -693,19 +693,19 @@ export const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 15,
     fontWeight: "bold",
-    color: "#111827",
+    color: colors.textPrimary,
     marginBottom: 3,
   },
 
   notificationMessage: {
     fontSize: 15,
-    color: "#4B5563",
+    color: colors.textSecondary,
     lineHeight: 20,
   },
 
   notificationDate: {
     fontSize: 12,
-    color: "#6B7280",
+    color: colors.textMuted,
     marginTop: 6,
   },
 });

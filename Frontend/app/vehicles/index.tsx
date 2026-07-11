@@ -184,8 +184,8 @@ export default function VehiclesScreen() {
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
       <StatusBar
-        backgroundColor={colors.surface}
-        style="dark"
+        backgroundColor={colors.primaryDark}
+        style="light"
         translucent={false}
       />
 
@@ -215,7 +215,7 @@ export default function VehiclesScreen() {
 
             <TextInput
               placeholder="Buscar por modelo ou placa"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textMuted}
               value={search}
               onChangeText={setSearch}
               style={styles.vehicleSearchInput}

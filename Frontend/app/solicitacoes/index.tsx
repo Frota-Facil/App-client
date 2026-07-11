@@ -229,8 +229,8 @@ export default function SolicitacoesScreen() {
   return (
     <SafeAreaView style={screenStyles.root} edges={["top"]}>
       <StatusBar
-        backgroundColor={colors.surface}
-        style="dark"
+        backgroundColor={colors.primaryDark}
+        style="light"
         translucent={false}
       />
 
@@ -353,11 +353,11 @@ const screenStyles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 22,
     borderRadius: 24,
-    backgroundColor: "#F59E0B",
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
+    shadowColor: colors.primaryDark,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -365,14 +365,14 @@ const screenStyles = StyleSheet.create({
   },
 
   requestFloatingButtonText: {
-    color: "#111827",
+    color: colors.textLight,
     fontSize: 16,
     fontWeight: "700",
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(17, 24, 39, 0.55)",
+    backgroundColor: colors.overlay,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 22,
@@ -425,14 +425,14 @@ const screenStyles = StyleSheet.create({
     width: "100%",
     height: 52,
     borderRadius: 20,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 18,
   },
 
   modalCloseButtonText: {
-    color: "#111827",
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: "700",
   },

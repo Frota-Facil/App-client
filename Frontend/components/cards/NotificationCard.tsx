@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import { colors } from "../../constants/colors";
 import { styles } from "../../styles/globalStyles";
 import { NotificationType } from "../../constants/notifications";
 
@@ -27,22 +28,22 @@ export const NotificationCard: React.FC<Props> = ({
       case "approved":
         return {
           icon: "✓",
-          bg: "#DFF7EA",
-          color: "#16A34A",
+          bg: colors.successSoft,
+          color: colors.successText,
         };
 
       case "rejected":
         return {
           icon: "×",
-          bg: "#FEE2E2",
-          color: "#DC2626",
+          bg: colors.dangerSoft,
+          color: colors.dangerText,
         };
 
       case "created":
         return {
           icon: "!",
-          bg: "#DBEAFE",
-          color: "#2563EB",
+          bg: colors.primarySoft,
+          color: colors.primary,
         };
     }
   };

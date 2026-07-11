@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Clock3, MapPin } from "lucide-react-native";
+import { colors } from "../../constants/colors";
 import { styles } from "../../styles/globalStyles";
 import {
   formatTripDate,
@@ -33,7 +34,7 @@ export const TripCard = ({ trip, onPress }: TripCardProps) => {
         <View style={styles.tripTitleArea}>
           <MapPin
             size={18}
-            color="#1B3A5C"
+            color={colors.primary}
             style={styles.tripLocationIcon}
           />
           <Text style={styles.tripDestination}>{destination}</Text>
@@ -51,7 +52,7 @@ export const TripCard = ({ trip, onPress }: TripCardProps) => {
 
       <View style={styles.tripInfoRow}>
         <View style={styles.tripInfoItem}>
-          <Clock3 size={14} color="#6B7280" />
+          <Clock3 size={14} color={colors.textSecondary} />
           <Text style={styles.tripInfoText}>
             {formatTripDate(cardDate)} · {formatTripTime(cardDate)}
           </Text>

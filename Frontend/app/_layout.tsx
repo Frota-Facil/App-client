@@ -16,7 +16,7 @@ const paperTheme = {
     primary: colors.primary,
     secondary: colors.primary,
     background: colors.background,
-    surface: "#FFFFFF",
+    surface: colors.card,
   },
 };
 

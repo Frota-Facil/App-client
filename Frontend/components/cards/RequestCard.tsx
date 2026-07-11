@@ -35,13 +35,13 @@ export const RequestCard: React.FC<Props> = ({
   const getStatusStyle = () => {
     switch (status) {
       case "Aprovada":
-        return { backgroundColor: "#DCFCE7", color: "#16A34A" };
+        return { backgroundColor: colors.successSoft, color: colors.successText };
       case "Pendente":
-        return { backgroundColor: "#FEF3C7", color: "#D97706" };
+        return { backgroundColor: colors.warningSoft, color: colors.warningText };
       case "Concluída":
-        return { backgroundColor: "#E5E7EB", color: "#374151" };
+        return { backgroundColor: colors.background, color: colors.textSecondary };
       case "Recusada":
-        return { backgroundColor: "#FEE2E2", color: "#DC2626" };
+        return { backgroundColor: colors.dangerSoft, color: colors.dangerText };
     }
   };
 
@@ -155,7 +155,7 @@ const cardStyles = StyleSheet.create({
 
   metaText: {
     flexShrink: 1,
-    color: "#6B7280",
+    color: colors.textSecondary,
     fontSize: 12,
   },
 
