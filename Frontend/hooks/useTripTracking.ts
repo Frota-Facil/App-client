@@ -6,7 +6,8 @@ import {
   TrackingRequestError,
 } from "../services/tracking";
 
-const TRACKING_INTERVAL_IN_MS = 10 * 60 * 1000;
+// Temporário para teste de tracking. Voltar para 10 * 60 * 1000 em produção.
+const TRACKING_INTERVAL_MS = 30 * 1000;
 
 const logTrackingError = (message: string, error: unknown) => {
   if (!__DEV__) {
@@ -94,7 +95,7 @@ export const useTripTracking = () => {
         }
 
         void sendCurrentLocation(routeId);
-      }, TRACKING_INTERVAL_IN_MS);
+      }, TRACKING_INTERVAL_MS);
 
       return true;
     },

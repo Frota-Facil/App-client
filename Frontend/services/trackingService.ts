@@ -1,6 +1,3 @@
-import NetInfo from "@react-native-community/netinfo";
-import type { NetInfoState } from "@react-native-community/netinfo";
-
 import {
   enqueueTracking,
   getFirstQueuedTracking,
@@ -17,11 +14,6 @@ export type { TrackingItem };
 
 let syncPromise: Promise<void> | null = null;
 
-const isOnline = (netInfo: NetInfoState) =>
-  netInfo.isConnected === true && netInfo.isInternetReachable !== false;
-
-const getIsOnline = async () => isOnline(await NetInfo.fetch());
-
 const toTrackingPoint = (tracking: TrackingItem): TrackingPoint => ({
   latitude: tracking.latitude,
   longitude: tracking.longitude,
@@ -32,11 +24,7 @@ const sendQueuedTracking = (tracking: TrackingItem) =>
   sendTrackingPoint(tracking.routeId, toTrackingPoint(tracking));
 
 const syncTrackingQueueInternal = async () => {
-  if (!(await getIsOnline())) {
-    return;
-  }
-
-  while (await getIsOnline()) {
+  while (true) {
     const nextTracking = await getFirstQueuedTracking();
 
     if (!nextTracking) {
@@ -65,20 +53,12 @@ export async function syncTrackingQueue() {
 }
 
 export function subscribeToTrackingQueueSync() {
-  return NetInfo.addEventListener((state) => {
-    if (isOnline(state)) {
-      void syncTrackingQueue();
-    }
-  });
+  void syncTrackingQueue();
+
+  return () => {};
 }
 
 export async function sendTracking(tracking: TrackingItem) {
-  if (!(await getIsOnline())) {
-    await enqueueTracking(tracking);
-
-    return;
-  }
-
   const pendingTrackings = await getQueueSize();
 
   if (pendingTrackings > 0) {

@@ -1,6 +1,17 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
-const STORAGE_KEY = "@tracking_queue";
+const TRACKING_QUEUE_STORAGE_KEY = "sif_tracking_queue";
+
+type WebStorage = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+};
+
+type GlobalWithLocalStorage = typeof globalThis & {
+  localStorage?: WebStorage;
+};
 
 export type TrackingItem = {
   routeId: string;
@@ -10,6 +21,48 @@ export type TrackingItem = {
 };
 
 let queueLock: Promise<void> = Promise.resolve();
+
+const getWebStorage = () =>
+  (globalThis as GlobalWithLocalStorage).localStorage;
+
+const getStorageItem = async (key: string) => {
+  try {
+    if (Platform.OS === "web") {
+      return getWebStorage()?.getItem(key) ?? null;
+    }
+
+    return await SecureStore.getItemAsync(key);
+  } catch (error) {
+    console.warn("Não foi possível ler a fila de tracking.", error);
+    return null;
+  }
+};
+
+const setStorageItem = async (key: string, value: string) => {
+  try {
+    if (Platform.OS === "web") {
+      getWebStorage()?.setItem(key, value);
+      return;
+    }
+
+    await SecureStore.setItemAsync(key, value);
+  } catch (error) {
+    console.warn("Não foi possível salvar a fila de tracking.", error);
+  }
+};
+
+const removeStorageItem = async (key: string) => {
+  try {
+    if (Platform.OS === "web") {
+      getWebStorage()?.removeItem(key);
+      return;
+    }
+
+    await SecureStore.deleteItemAsync(key);
+  } catch (error) {
+    console.warn("Não foi possível limpar a fila de tracking.", error);
+  }
+};
 
 const isTrackingItem = (value: unknown): value is TrackingItem => {
   if (!value || typeof value !== "object") {
@@ -50,7 +103,7 @@ const withQueueLock = async <T>(
 };
 
 const readQueueUnsafe = async (): Promise<TrackingItem[]> => {
-  const data = await AsyncStorage.getItem(STORAGE_KEY);
+  const data = await getStorageItem(TRACKING_QUEUE_STORAGE_KEY);
 
   if (!data) {
     return [];
@@ -60,24 +113,24 @@ const readQueueUnsafe = async (): Promise<TrackingItem[]> => {
     const parsed = JSON.parse(data);
 
     if (!Array.isArray(parsed)) {
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await removeStorageItem(TRACKING_QUEUE_STORAGE_KEY);
       return [];
     }
 
     return parsed.filter(isTrackingItem);
   } catch {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await removeStorageItem(TRACKING_QUEUE_STORAGE_KEY);
     return [];
   }
 };
 
 const writeQueueUnsafe = async (queue: TrackingItem[]) => {
   if (queue.length === 0) {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await removeStorageItem(TRACKING_QUEUE_STORAGE_KEY);
     return;
   }
 
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+  await setStorageItem(TRACKING_QUEUE_STORAGE_KEY, JSON.stringify(queue));
 };
 
 export async function getQueue(): Promise<TrackingItem[]> {
@@ -133,5 +186,5 @@ export async function getQueueSize(): Promise<number> {
 }
 
 export async function clearQueue() {
-  await withQueueLock(() => AsyncStorage.removeItem(STORAGE_KEY));
+  await withQueueLock(() => removeStorageItem(TRACKING_QUEUE_STORAGE_KEY));
 }

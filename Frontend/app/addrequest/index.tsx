@@ -241,14 +241,13 @@ const getVehicleLoadErrorMessage = (error: unknown) => {
   return "Não foi possível carregar os veículos.";
 };
 
-const getTimeParts = (value?: string | null) => {
-  if (value && /^\d{2}:\d{2}$/.test(value)) {
-    const [hour, minute] = value.split(":");
+const getCurrentTimeParts = () => {
+  const now = new Date();
 
-    return { hour, minute };
-  }
-
-  return { hour: "08", minute: "00" };
+  return {
+    hour: String(now.getHours()).padStart(2, "0"),
+    minute: String(now.getMinutes()).padStart(2, "0"),
+  };
 };
 
 const getTimeOptionIndex = (options: string[], value: string) => {
@@ -789,8 +788,7 @@ export default function MakeRequest() {
   };
 
   const openTimePicker = (target: TimeTarget) => {
-    const selectedTime = target === "start" ? startTime : endTime;
-    const { hour, minute } = getTimeParts(selectedTime);
+    const { hour, minute } = getCurrentTimeParts();
 
     setTimeTarget(target);
     setTempHour(hour);

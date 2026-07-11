@@ -1,5 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+import * as SecureStore from "expo-secure-store";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 
@@ -7,8 +7,18 @@ import { colors } from "../constants/colors";
 import { sendTracking, syncTrackingQueue } from "./trackingService";
 import type { TrackingItem } from "../storage/trackingQueue";
 
-const ACTIVE_TRACKING_ROUTE_KEY = "@active_tracking_route_id";
+const ACTIVE_TRACKING_ROUTE_KEY = "sif_active_tracking_route_id";
 const TRACKING_LOCATION_TASK = "sif-route-location-tracking";
+
+type WebStorage = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+};
+
+type GlobalWithLocalStorage = typeof globalThis & {
+  localStorage?: WebStorage;
+};
 
 type LocationTaskData = {
   locations?: Location.LocationObject[];
@@ -21,15 +31,57 @@ export class TrackingLocationError extends Error {
   }
 }
 
+const getWebStorage = () =>
+  (globalThis as GlobalWithLocalStorage).localStorage;
+
+const getStorageItem = async (key: string) => {
+  try {
+    if (Platform.OS === "web") {
+      return getWebStorage()?.getItem(key) ?? null;
+    }
+
+    return await SecureStore.getItemAsync(key);
+  } catch (error) {
+    console.warn("Não foi possível ler o estado do tracking.", error);
+    return null;
+  }
+};
+
+const setStorageItem = async (key: string, value: string) => {
+  try {
+    if (Platform.OS === "web") {
+      getWebStorage()?.setItem(key, value);
+      return;
+    }
+
+    await SecureStore.setItemAsync(key, value);
+  } catch (error) {
+    console.warn("Não foi possível salvar o estado do tracking.", error);
+  }
+};
+
+const removeStorageItem = async (key: string) => {
+  try {
+    if (Platform.OS === "web") {
+      getWebStorage()?.removeItem(key);
+      return;
+    }
+
+    await SecureStore.deleteItemAsync(key);
+  } catch (error) {
+    console.warn("Não foi possível limpar o estado do tracking.", error);
+  }
+};
+
 const getActiveTrackingRouteId = async () =>
-  AsyncStorage.getItem(ACTIVE_TRACKING_ROUTE_KEY);
+  getStorageItem(ACTIVE_TRACKING_ROUTE_KEY);
 
 const setActiveTrackingRouteId = async (routeId: string) => {
-  await AsyncStorage.setItem(ACTIVE_TRACKING_ROUTE_KEY, routeId);
+  await setStorageItem(ACTIVE_TRACKING_ROUTE_KEY, routeId);
 };
 
 const clearActiveTrackingRouteId = async () => {
-  await AsyncStorage.removeItem(ACTIVE_TRACKING_ROUTE_KEY);
+  await removeStorageItem(ACTIVE_TRACKING_ROUTE_KEY);
 };
 
 const createTrackingItem = (
@@ -65,11 +117,14 @@ const sendCurrentLocation = async (routeId: string) => {
   }
 };
 
+// Temporário para teste de tracking. Voltar para 10 * 60 * 1000 em produção.
+const TRACKING_LOCATION_TASK_INTERVAL_MS = 30 * 1000;
+
 const locationTaskOptions: Location.LocationTaskOptions = {
   accuracy: Location.Accuracy.High,
   activityType: Location.ActivityType.AutomotiveNavigation,
   distanceInterval: 0,
-  timeInterval: 10 * 60 * 1000,
+  timeInterval: TRACKING_LOCATION_TASK_INTERVAL_MS,
   deferredUpdatesDistance: 0,
   deferredUpdatesInterval: 0,
   foregroundService: {
