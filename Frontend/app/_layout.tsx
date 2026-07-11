@@ -48,17 +48,7 @@ function AppShell({ isAuthenticated }: { isAuthenticated: boolean }) {
 
   return (
     <View style={styles.appShell}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="home/index" />
-        <Stack.Screen name="vehicles/index" />
-        <Stack.Screen name="solicitacoes/index" />
-        <Stack.Screen name="avisos/index" />
-        <Stack.Screen name="perfil/index" />
-        <Stack.Screen name="addrequest/index" />
-        <Stack.Screen name="trips/index" />
-        <Stack.Screen name="trips/[id]" />
-      </Stack>
+      <Stack screenOptions={{ headerShown: false }} />
 
       {isAuthenticated && shouldShowTabBar(pathname) && <TabBar />}
     </View>

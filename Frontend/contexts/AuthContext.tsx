@@ -62,16 +62,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     getSession()
       .then(setSession)
+      .catch((error) => {
+        console.warn("Não foi possível carregar a sessão salva.", error);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const nextSession = await login(email, password);
-
-    await saveSession(nextSession);
-    setSession(nextSession);
-
-    try {
+  const registerPushTokenAfterLogin = useCallback(
+    async (authToken: string) => {
       const { registerForPushNotificationsAsync } = await import(
         "../services/pushNotifications"
       );
@@ -91,7 +89,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
       try {
         const savedPushToken = await savePushTokenAsync({
-          authToken: nextSession.token,
+          authToken,
           platform,
           pushToken,
         });
@@ -104,17 +102,33 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
             status: error.status,
             responseBody: error.responseBody,
             hasToken: Boolean(pushToken),
-            hasAuthToken: Boolean(nextSession.token),
+            hasAuthToken: Boolean(authToken),
           });
           return;
         }
 
         console.warn("Erro ao salvar Expo Push Token no core-service:", error);
       }
-    } catch (error) {
-      console.warn("Erro ao registrar push notifications após login:", error);
-    }
-  }, [savePushTokenAsync]);
+    },
+    [savePushTokenAsync]
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const nextSession = await login(email, password);
+
+      setSession(nextSession);
+
+      void saveSession(nextSession).catch((error) => {
+        console.warn("Não foi possível salvar a sessão.", error);
+      });
+
+      void registerPushTokenAfterLogin(nextSession.token).catch((error) => {
+        console.warn("Erro ao registrar push notifications após login:", error);
+      });
+    },
+    [registerPushTokenAfterLogin]
+  );
 
   const signOut = useCallback(async () => {
     try {

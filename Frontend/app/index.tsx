@@ -26,7 +26,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
@@ -39,7 +39,7 @@ export default function LoginScreen() {
     }
 
     try {
-      setIsSubmitting(true);
+      setLoading(true);
       await signIn(trimmedEmail, password);
       router.replace("/home");
     } catch (error) {
@@ -50,7 +50,7 @@ export default function LoginScreen() {
 
       setErrorMessage("Não foi possível conectar ao servidor");
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -172,15 +172,15 @@ export default function LoginScreen() {
         {/* BOTÃO */}
         <TouchableOpacity
           onPress={handleLogin}
-          disabled={isSubmitting}
+          disabled={isLoading}
           style={{
-            backgroundColor: isSubmitting ? "#6B7280" : "#1B3A5C",
+            backgroundColor: isLoading ? "#6B7280" : "#1B3A5C",
             padding: 16,
             borderRadius: 14,
             alignItems: "center",
           }}
         >
-          {isSubmitting ? (
+          {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={{ color: "#fff", fontWeight: "bold" }}>
