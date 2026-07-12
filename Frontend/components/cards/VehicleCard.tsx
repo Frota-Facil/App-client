@@ -21,6 +21,7 @@ export const VehicleCard = ({ variant = "list", ...vehicle }: VehicleCardProps) 
   const status = getVehicleStatusMeta(vehicle.status);
   const displayName = getVehicleDisplayName(vehicle);
   const normalizedImageUrl = normalizeImageUrl(vehicle.imageUrl);
+  const hasVehicleImage = Boolean(normalizedImageUrl);
   const imageSource = normalizedImageUrl
     ? { uri: normalizedImageUrl }
     : vehicleImage;
@@ -52,9 +53,13 @@ export const VehicleCard = ({ variant = "list", ...vehicle }: VehicleCardProps) 
         >
           <View style={styles.vehicleGridImage}>
             <Image
-              resizeMode="contain"
+              resizeMode={hasVehicleImage ? "cover" : "contain"}
               source={imageSource}
-              style={styles.vehicleGridImageAsset}
+              style={
+                hasVehicleImage
+                  ? styles.vehicleGridImageAsset
+                  : styles.vehicleGridPlaceholderImage
+              }
             />
           </View>
 
@@ -85,9 +90,13 @@ export const VehicleCard = ({ variant = "list", ...vehicle }: VehicleCardProps) 
       >
         <View style={styles.vehicleCardImageWrapper}>
           <Image
-            resizeMode="contain"
+            resizeMode={hasVehicleImage ? "cover" : "contain"}
             source={imageSource}
-            style={styles.vehicleCardImage}
+            style={
+              hasVehicleImage
+                ? styles.vehicleCardImage
+                : styles.vehicleCardPlaceholderImage
+            }
           />
         </View>
 

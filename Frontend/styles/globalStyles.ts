@@ -208,9 +208,16 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    overflow: "hidden",
   },
 
   vehicleCardImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14,
+  },
+
+  vehicleCardPlaceholderImage: {
     width: 58,
     height: 38,
   },
@@ -420,9 +427,16 @@ export const styles = StyleSheet.create({
     height: 80,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
 
   vehicleGridImageAsset: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 12,
+  },
+
+  vehicleGridPlaceholderImage: {
     width: "88%",
     height: 66,
   },
@@ -478,15 +492,23 @@ export const styles = StyleSheet.create({
   },
 
   vehicleModalImageWrapper: {
-    minHeight: 150,
-    borderRadius: 16,
+    width: "100%",
+    height: 220,
+    borderRadius: 18,
     backgroundColor: colors.backgroundSoft,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
+    overflow: "hidden",
   },
 
   vehicleModalImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 18,
+  },
+
+  vehicleModalPlaceholderImage: {
     width: 220,
     height: 130,
   },

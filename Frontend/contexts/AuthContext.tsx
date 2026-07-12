@@ -74,9 +74,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         "../services/pushNotifications"
       );
       const pushToken = await registerForPushNotificationsAsync();
-      console.log("Expo Push Token:", pushToken);
 
       if (!pushToken) {
+        console.warn(
+          "[push] Expo Push Token indisponível; token não será enviado ao backend."
+        );
         return;
       }
 

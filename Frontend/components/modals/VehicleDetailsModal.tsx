@@ -62,6 +62,7 @@ export const VehicleDetailsModal = ({
   const normalizedStatus = normalizeVehicleStatus(vehicle.status);
   const canRequestVehicle = normalizedStatus === "available";
   const normalizedImageUrl = normalizeImageUrl(vehicle.imageUrl);
+  const hasVehicleImage = Boolean(normalizedImageUrl);
   const imageSource = normalizedImageUrl
     ? { uri: normalizedImageUrl }
     : vehicleImage;
@@ -92,9 +93,13 @@ export const VehicleDetailsModal = ({
         <View style={styles.vehicleModalCard}>
           <View style={styles.vehicleModalImageWrapper}>
             <Image
-              resizeMode="contain"
+              resizeMode={hasVehicleImage ? "cover" : "contain"}
               source={imageSource}
-              style={styles.vehicleModalImage}
+              style={
+                hasVehicleImage
+                  ? styles.vehicleModalImage
+                  : styles.vehicleModalPlaceholderImage
+              }
             />
           </View>
 
