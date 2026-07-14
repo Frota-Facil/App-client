@@ -21,6 +21,10 @@
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/logo.png"
       },
+      "notification": {
+        "icon": "./assets/images/notification-icon.png",
+        "color": "#1B4D9C"
+      },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.everton5gems.sif",
