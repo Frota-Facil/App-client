@@ -5,7 +5,7 @@
     "jsEngine": "hermes",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/app.png",
     "scheme": "frontend-app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/logo.png"
+        "foregroundImage": "./assets/images/app.png"
       },
       "notification": {
         "icon": "./assets/images/notification-icon.png",
