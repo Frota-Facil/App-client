@@ -5,12 +5,13 @@
     "jsEngine": "hermes",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app.png",
+    "icon": "./assets/images/adaptive-icon.png",
     "scheme": "frontend-app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "icon": "./assets/images/adaptive-icon.png",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "O SIF usa sua localização durante viagens em andamento para monitoramento da frota mesmo em segundo plano."
@@ -18,12 +19,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/app.png"
-      },
-      "notification": {
-        "icon": "./assets/images/notification-icon.png",
-        "color": "#1B4D9C"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -45,7 +42,13 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#1B3A5C"
+        }
+      ],
       [
         "expo-location",
         {
