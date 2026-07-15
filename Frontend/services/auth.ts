@@ -19,14 +19,12 @@ export class AuthRequestError extends Error {
 const LOGIN_TIMEOUT_MS = 10 * 1000;
 const CONNECTION_ERROR_MESSAGE = "Não foi possível conectar ao servidor.";
 
-const getLoginURL = () => {
+const getCoreBaseURL = () => {
   const envBaseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
-  const baseURL = envBaseURL?.trim().replace(/\/+$/, "") ?? "";
-  const loginURL = `${baseURL}/auth`;
+  return envBaseURL?.trim().replace(/\/+$/, "") ?? "";
+};
 
-  console.log("[login] API base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
-  console.log("[login] URL final:", loginURL);
-
+const validateCoreBaseURL = (baseURL: string) => {
   if (
     !baseURL ||
     /(^|\/\/)(localhost|127\.0\.0\.1|host\.docker\.internal)(:|\/|$)/i.test(
@@ -35,8 +33,30 @@ const getLoginURL = () => {
   ) {
     throw new AuthRequestError(CONNECTION_ERROR_MESSAGE);
   }
+};
+
+const getLoginURL = () => {
+  const baseURL = getCoreBaseURL();
+  const loginURL = `${baseURL}/auth`;
+
+  console.log("[login] API base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
+  console.log("[login] URL final:", loginURL);
+
+  validateCoreBaseURL(baseURL);
 
   return loginURL;
+};
+
+const getGoogleLoginURL = () => {
+  const baseURL = getCoreBaseURL();
+  const googleLoginURL = `${baseURL}/auth/google`;
+
+  console.log("[google-login] API base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
+  console.log("[google-login] URL final:", googleLoginURL);
+
+  validateCoreBaseURL(baseURL);
+
+  return googleLoginURL;
 };
 
 const fetchWithTimeout = async (
@@ -55,6 +75,35 @@ const fetchWithTimeout = async (
     clearTimeout(timeoutId);
   }
 };
+
+const getResponseMessage = async (response: Response, fallback: string) => {
+  try {
+    const body = (await response.json()) as {
+      message?: unknown;
+      error?: unknown;
+    };
+
+    if (typeof body.message === "string" && body.message.trim()) {
+      return body.message;
+    }
+
+    if (typeof body.error === "string" && body.error.trim()) {
+      return body.error;
+    }
+
+    return fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizeSession = (session: AuthSessionResponse): AuthSession => ({
+  ...session,
+  user: {
+    ...session.user,
+    photoUrl: session.user.photoUrl ?? session.user.photo_url ?? null,
+  },
+});
 
 export const login = async (
   email: string,
@@ -88,11 +137,48 @@ export const login = async (
 
   const session = (await response.json()) as AuthSessionResponse;
 
-  return {
-    ...session,
-    user: {
-      ...session.user,
-      photoUrl: session.user.photoUrl ?? session.user.photo_url ?? null,
-    },
-  };
+  return normalizeSession(session);
+};
+
+export const loginWithGoogleIdToken = async (
+  idToken: string
+): Promise<AuthSession> => {
+  const trimmedIdToken = idToken.trim();
+
+  if (!trimmedIdToken) {
+    throw new AuthRequestError("Token do Google inválido", 401);
+  }
+
+  let response: Response;
+  const loginURL = getGoogleLoginURL();
+
+  try {
+    console.log("[google-login] enviando requisição");
+
+    response = await fetchWithTimeout(loginURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ idToken: trimmedIdToken }),
+    });
+    console.log("[google-login] status:", response.status);
+  } catch {
+    throw new AuthRequestError(CONNECTION_ERROR_MESSAGE);
+  }
+
+  if (!response.ok) {
+    const message = await getResponseMessage(
+      response,
+      response.status === 401
+        ? "Usuário não autorizado"
+        : "Não foi possível autenticar com Google"
+    );
+
+    throw new AuthRequestError(message, response.status);
+  }
+
+  const session = (await response.json()) as AuthSessionResponse;
+
+  return normalizeSession(session);
 };

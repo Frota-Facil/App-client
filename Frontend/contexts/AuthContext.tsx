@@ -11,7 +11,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Platform } from "react-native";
 
-import { login } from "../services/auth";
+import { login, loginWithGoogleIdToken } from "../services/auth";
 import { PushTokenRequestError, savePushToken } from "../services/pushTokens";
 import type { PushTokenPlatform } from "../services/pushTokens";
 import {
@@ -26,6 +26,7 @@ type AuthContextValue = {
   token: string | null;
   user: AuthUser | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -115,10 +116,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     [savePushTokenAsync]
   );
 
-  const signIn = useCallback(
-    async (email: string, password: string) => {
-      const nextSession = await login(email, password);
-
+  const persistAuthenticatedSession = useCallback(
+    (nextSession: AuthSession) => {
       setSession(nextSession);
 
       void saveSession(nextSession).catch((error) => {
@@ -130,6 +129,24 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       });
     },
     [registerPushTokenAfterLogin]
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const nextSession = await login(email, password);
+
+      persistAuthenticatedSession(nextSession);
+    },
+    [persistAuthenticatedSession]
+  );
+
+  const signInWithGoogle = useCallback(
+    async (idToken: string) => {
+      const nextSession = await loginWithGoogleIdToken(idToken);
+
+      persistAuthenticatedSession(nextSession);
+    },
+    [persistAuthenticatedSession]
   );
 
   const signOut = useCallback(async () => {
@@ -155,9 +172,10 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       token: session?.token ?? null,
       user: session?.user ?? null,
       signIn,
+      signInWithGoogle,
       signOut,
     }),
-    [isLoading, session, signIn, signOut]
+    [isLoading, session, signIn, signInWithGoogle, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
